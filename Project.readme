@@ -1,0 +1,30 @@
+Oracle Architecture Arena: Project Dependencies
+This project utilizes a modern React/Next.js stack designed for high-end, agent-driven architecture tools. Below is a breakdown of the core tools and their roles in this application.
+
+🎨 The UI & Experience Stack
+Framer Motion: The industry standard for animations in React. This is used to make the "Agent Debate" feel immersive—handling smooth chat bubble transitions, judge verdicts, and phase shifts between discovery and the architecture canvas.
+
+Lucide React: A library of clean, consistent icons. It provides the professional "Executive Dashboard" look with dedicated icons for databases, cloud infrastructure, and security components.
+
+shadcn/ui: A highly customizable component system built on Tailwind CSS. It provides the foundational UI elements (buttons, cards, forms) that give the app its professional enterprise aesthetic.
+
+🧠 Intelligence & Data Integrity
+Zod: A schema validation library. It acts as a safety layer for AI-generated data. Before the UI renders a "Judge Verdict" or an "Architecture Spec," Zod verifies the data structure to prevent application crashes caused by unexpected AI outputs.
+
+🏗️ Canvas & Diagramming
+ReactFlow: A powerful framework for building interactive node-based graphs. This is the engine behind the Architecture Arena, allowing Sales Engineers to view, drag, and connect various Oracle cloud components (LB, DB, App Tiers) as a structured diagram.
+
+tldraw: A collaborative whiteboard component. It enables a "napkin sketch" workflow where an SE can roughly draw an idea before the AI converts it into a formal, structured architecture.
+
+Tool Summary TableToolCategoryKey BenefitFramer MotionAnimationPolished, professional agent interactionsLucide ReactVisualsConsistent, high-quality infrastructure iconsshadcn/uiUI FrameworkRapid development of enterprise-grade componentsZodLogicSafety layer for AI-generated JSON dataReactFlowDiagramsInteractive, editable architecture visualizationstldrawSketching
+
+Project Directories
+To keep the codebase clean, the tools are integrated into these core folders:
+
+src/components: UI elements and ReactFlow/tldraw surfaces.
+
+src/lib/agents: Prompt logic and debate engine.
+
+src/lib/diagrams: Logic for converting text/sketches into visual nodes.
+
+src/lib/scenarios: Competitive data models (Databricks, Snowflake, etc.).
