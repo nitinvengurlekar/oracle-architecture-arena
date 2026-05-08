@@ -2,6 +2,7 @@ import type {
   ArchitectureEdge,
   ArchitectureDebate,
   ArchitectureNode,
+  ArchitectureGeneratorBlueprint,
   CompetitiveAssistBrief,
   DebateAgent,
   ExecutiveMetric,
@@ -503,6 +504,143 @@ export const architectureEdges = [
     label: "assure",
   },
 ] satisfies ArchitectureEdge[]
+
+export const generatedArchitectureBlueprint = {
+  id: "blueprint-lakehouse-001",
+  title: "Oracle Governed Lakehouse Blueprint",
+  generatedFrom: "Debate Arena: Databricks Lakehouse Evaluation",
+  recommendationSource:
+    "Oracle production baseline with targeted Databricks challenge areas",
+  confidence: 85,
+  summary:
+    "Generated architecture keeps Oracle systems of record as the trusted anchor, uses GoldenGate to control data movement, and promotes governed lakehouse, database, and AI service layers into a production-ready OCI blueprint.",
+  nodes: [
+    {
+      id: "oracle-data",
+      label: "Oracle Systems of Record",
+      type: "input",
+      detail: "Core database estate, ERP, and regulated operational data.",
+      ociService: "Oracle Database",
+      layer: "Source systems",
+      rationale:
+        "The Debate Arena recommendation starts from Oracle data gravity and avoids unnecessary duplication of trusted systems.",
+      status: "Validated",
+      tone: "red",
+      x: 0,
+      y: 120,
+    },
+    {
+      id: "goldengate",
+      label: "Controlled Data Movement",
+      type: "service",
+      detail: "Low-latency replication, transformation, and movement policy.",
+      ociService: "Oracle GoldenGate",
+      layer: "Integration",
+      rationale:
+        "GoldenGate turns the competitor risk around data movement into an explicit governed integration layer.",
+      status: "Generated",
+      tone: "amber",
+      x: 270,
+      y: 120,
+    },
+    {
+      id: "lakehouse",
+      label: "Open Lakehouse Zone",
+      type: "platform",
+      detail: "Object storage, open formats, curated data products, and analytics access.",
+      ociService: "OCI Data Lake",
+      layer: "Lakehouse",
+      rationale:
+        "Provides the lakehouse architecture pattern while keeping platform controls aligned to OCI governance.",
+      status: "Review",
+      tone: "blue",
+      x: 550,
+      y: 35,
+    },
+    {
+      id: "autonomous",
+      label: "Curated Serving Layer",
+      type: "platform",
+      detail: "SQL analytics, reporting marts, operational dashboards, and workload isolation.",
+      ociService: "Autonomous Database",
+      layer: "Serving",
+      rationale:
+        "Keeps high-value production analytics close to Oracle capabilities and predictable operations.",
+      status: "Generated",
+      tone: "red",
+      x: 550,
+      y: 230,
+    },
+    {
+      id: "ai-services",
+      label: "AI and Model Workflows",
+      type: "service",
+      detail: "Model experimentation, inference endpoints, embeddings, and vector workflows.",
+      ociService: "OCI AI Services",
+      layer: "AI/ML",
+      rationale:
+        "Answers the competitor velocity advantage by creating a clear model workflow lane inside the Oracle blueprint.",
+      status: "Review",
+      tone: "violet",
+      x: 835,
+      y: 35,
+    },
+    {
+      id: "governance",
+      label: "Governance and Sovereignty",
+      type: "governance",
+      detail: "Identity, audit, data residency, policy, encryption, and operator control.",
+      ociService: "OCI Governance",
+      layer: "Controls",
+      rationale:
+        "Elevates the judge's governance and sovereignty criteria into a cross-cutting architecture control plane.",
+      status: "Validated",
+      tone: "emerald",
+      x: 835,
+      y: 230,
+    },
+    {
+      id: "outcomes",
+      label: "Executive Decision Outputs",
+      type: "output",
+      detail: "Modernization roadmap, risk register, cost model, and pilot scorecard.",
+      ociService: "Architecture Center",
+      layer: "Outcomes",
+      rationale:
+        "Connects generated architecture choices back to executive decision material and sales engineering next steps.",
+      status: "Generated",
+      tone: "slate",
+      x: 1120,
+      y: 120,
+    },
+  ],
+  edges: architectureEdges,
+  metrics: [
+    {
+      label: "Architecture readiness",
+      value: "85%",
+      detail: "Ready for workload-specific refinement and review.",
+      tone: "emerald",
+    },
+    {
+      label: "Governance coverage",
+      value: "6/7",
+      detail: "Controls are attached to every generated production lane.",
+      tone: "blue",
+    },
+    {
+      label: "Open decisions",
+      value: "3",
+      detail: "Freshness, concurrency, and existing Databricks investment.",
+      tone: "amber",
+    },
+  ],
+  assumptions: [
+    "Oracle databases remain the trusted source for regulated systems of record.",
+    "A representative workload will be used before platform standardization.",
+    "Governance, cost predictability, and residency are executive decision criteria.",
+  ],
+} satisfies ArchitectureGeneratorBlueprint
 
 export const whiteboardSignals = [
   {

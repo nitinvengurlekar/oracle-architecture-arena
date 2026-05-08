@@ -185,6 +185,36 @@ export interface ArchitectureEdge {
   label: string
 }
 
+export type ArchitectureNodeStatus = "Generated" | "Review" | "Validated"
+
+export interface ArchitectureGeneratorNode extends ArchitectureNode {
+  ociService: string
+  layer: string
+  rationale: string
+  status: ArchitectureNodeStatus
+  tone: WorkbenchTone
+}
+
+export interface ArchitectureGeneratorMetric {
+  label: string
+  value: string
+  detail: string
+  tone: WorkbenchTone
+}
+
+export interface ArchitectureGeneratorBlueprint {
+  id: string
+  title: string
+  generatedFrom: string
+  summary: string
+  recommendationSource: string
+  confidence: number
+  nodes: ArchitectureGeneratorNode[]
+  edges: ArchitectureEdge[]
+  metrics: ArchitectureGeneratorMetric[]
+  assumptions: string[]
+}
+
 export interface WhiteboardSignal {
   title: string
   status: string
