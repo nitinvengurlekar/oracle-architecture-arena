@@ -1,5 +1,6 @@
 import type {
   ArchitectureEdge,
+  ArchitectureDebate,
   ArchitectureNode,
   CompetitiveAssistBrief,
   DebateAgent,
@@ -257,6 +258,147 @@ export const debateAgents = [
     tone: "emerald",
   },
 ] satisfies DebateAgent[]
+
+export const architectureDebate = {
+  scenario: "Databricks Lakehouse Evaluation",
+  customerContext:
+    "Regional banking customer is evaluating Databricks for a lakehouse while core systems of record remain on Oracle Database. Discovery is incomplete, but governance, cost predictability, model operations, and data movement are likely decision factors.",
+  agents: {
+    oracle: {
+      id: "oracle-architect",
+      role: "oracle",
+      name: "Oracle Architect Agent",
+      title: "Modernization and Data Platform Architect",
+      organization: "Oracle strategy team",
+      objective:
+        "Propose an Oracle-led architecture that keeps trusted enterprise data governed while enabling lakehouse analytics and AI.",
+      response:
+        "Start from the customer's Oracle data gravity. Use GoldenGate for controlled movement, OCI Data Lake for open data zones, Autonomous Database for curated serving, and OCI AI Services for model workflows. The architecture should reduce duplication, preserve governance, and make cost controls explicit before the customer commits to a separate lakehouse control plane.",
+      keyClaims: [
+        "Oracle systems of record should anchor the first architecture draft.",
+        "GoldenGate and Autonomous Database reduce integration risk for production analytics.",
+        "OCI governance and sovereign deployment options keep regulated workloads in scope.",
+      ],
+      watchItems: [
+        "Confirm actual Databricks adoption depth before positioning too aggressively.",
+        "Validate latency requirements between operational systems and analytics users.",
+        "Quantify concurrency, data movement, and model serving economics.",
+      ],
+      confidence: 91,
+      tone: "red",
+    },
+    competitor: {
+      id: "competitor-architect",
+      role: "competitor",
+      name: "Competitor Architect Agent",
+      title: "Databricks Lakehouse Advocate",
+      organization: "Competitive perspective",
+      objective:
+        "Represent why the customer may prefer Databricks for lakehouse standardization.",
+      response:
+        "Databricks gives data engineering and data science teams a unified collaborative workspace. A notebook-first experience, strong Spark ecosystem, and simple lakehouse narrative can help the customer move quickly from raw data to ML experimentation. If the customer values developer velocity above Oracle estate integration, Databricks will feel like the natural center of gravity.",
+      keyClaims: [
+        "Data engineering and data science teams already understand the Databricks workflow.",
+        "The lakehouse story is straightforward for analytics consolidation.",
+        "Experimentation speed may matter more than platform consolidation in the first phase.",
+      ],
+      watchItems: [
+        "Production governance may require additional controls and adjacent services.",
+        "Oracle source-system integration can introduce movement and latency tradeoffs.",
+        "Consumption costs may become harder to predict at production concurrency.",
+      ],
+      confidence: 82,
+      tone: "blue",
+    },
+    judge: {
+      id: "neutral-cto-judge",
+      role: "judge",
+      name: "Neutral CTO Judge",
+      title: "Executive Architecture Arbiter",
+      organization: "Independent review",
+      objective:
+        "Score both approaches against enterprise readiness, risk, and decision clarity.",
+      response:
+        "Both positions are credible. Databricks is compelling for team velocity and experimentation, but the current customer signal is too incomplete to crown it as the production architecture. Oracle has the stronger enterprise path if regulated data, operational integration, sovereignty, and cost predictability matter. The recommended path is a workload-specific bakeoff with Oracle's governed architecture as the default production baseline.",
+      keyClaims: [
+        "The decision should be workload-specific, not platform-brand-led.",
+        "Oracle has stronger leverage where systems of record, governance, and residency dominate.",
+        "Databricks strength should be acknowledged and tested against production controls.",
+      ],
+      watchItems: [
+        "Do not overfit the recommendation before discovery confirms buyer priorities.",
+        "Resolve ownership of platform operations and governance.",
+        "Require a side-by-side cost and data movement model.",
+      ],
+      confidence: 88,
+      tone: "emerald",
+    },
+  },
+  scores: [
+    {
+      criterion: "Enterprise governance",
+      oracleScore: 92,
+      competitorScore: 78,
+      judgeWeight: 24,
+      rationale:
+        "Oracle has stronger native alignment to regulated data, database controls, and sovereign deployment patterns.",
+    },
+    {
+      criterion: "Data science velocity",
+      oracleScore: 78,
+      competitorScore: 91,
+      judgeWeight: 18,
+      rationale:
+        "Databricks remains highly credible for notebook-first experimentation and data science collaboration.",
+    },
+    {
+      criterion: "Operational integration",
+      oracleScore: 90,
+      competitorScore: 75,
+      judgeWeight: 22,
+      rationale:
+        "Oracle wins when the architecture depends on low-friction integration with Oracle systems of record.",
+    },
+    {
+      criterion: "Cost predictability",
+      oracleScore: 84,
+      competitorScore: 76,
+      judgeWeight: 16,
+      rationale:
+        "The judge wants concurrency, data movement, and model serving assumptions quantified before final selection.",
+    },
+    {
+      criterion: "Time to pilot",
+      oracleScore: 80,
+      competitorScore: 88,
+      judgeWeight: 20,
+      rationale:
+        "Databricks may move faster for an isolated pilot, while Oracle is stronger as the governed production baseline.",
+    },
+  ],
+  recommendation: {
+    verdict: "Oracle production baseline with targeted Databricks challenge areas",
+    summary:
+      "Use Oracle as the recommended production architecture when governance, Oracle data gravity, integration, and cost predictability matter. Treat Databricks as a credible challenger for experimentation velocity and test it through a representative workload.",
+    recommendedArchitecture:
+      "Oracle Database systems of record connected through GoldenGate into OCI Data Lake and Autonomous Database serving layers, with OCI AI Services and governance controls attached before production rollout.",
+    whyOracle: [
+      "Stronger fit for regulated Oracle data and production governance.",
+      "Lower integration risk for systems of record that already run on Oracle.",
+      "Clearer path to sovereign, audit, and operator-control requirements.",
+    ],
+    risksToResolve: [
+      "Confirm whether the customer already has Databricks skills or committed platform spend.",
+      "Validate freshness requirements between operational systems and lakehouse consumers.",
+      "Model production concurrency, data movement, and AI serving costs.",
+    ],
+    nextSteps: [
+      "Run discovery on workload, data sources, governance, and operating ownership.",
+      "Create a side-by-side architecture for one representative lakehouse workload.",
+      "Send the winning assumptions into Architecture Generator for a production blueprint.",
+    ],
+  },
+} satisfies ArchitectureDebate
 
 export const architectureNodes = [
   {

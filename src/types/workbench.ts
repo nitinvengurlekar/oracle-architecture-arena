@@ -124,6 +124,51 @@ export interface DebateAgent {
   tone: WorkbenchTone
 }
 
+export type DebateAgentRole = "oracle" | "competitor" | "judge"
+
+export interface DebateAgentPanel {
+  id: string
+  role: DebateAgentRole
+  name: string
+  title: string
+  organization: string
+  objective: string
+  response: string
+  keyClaims: string[]
+  watchItems: string[]
+  confidence: number
+  tone: WorkbenchTone
+}
+
+export interface DebateScore {
+  criterion: string
+  oracleScore: number
+  competitorScore: number
+  judgeWeight: number
+  rationale: string
+}
+
+export interface ArchitectureRecommendation {
+  verdict: string
+  summary: string
+  recommendedArchitecture: string
+  whyOracle: string[]
+  risksToResolve: string[]
+  nextSteps: string[]
+}
+
+export interface ArchitectureDebate {
+  scenario: string
+  customerContext: string
+  agents: {
+    oracle: DebateAgentPanel
+    competitor: DebateAgentPanel
+    judge: DebateAgentPanel
+  }
+  scores: DebateScore[]
+  recommendation: ArchitectureRecommendation
+}
+
 export interface ArchitectureNode {
   id: string
   label: string
