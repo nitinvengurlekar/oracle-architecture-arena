@@ -157,6 +157,15 @@ export const architectureScoreboard = [
 
 export const competitiveAssistBrief = {
   prompt: "Customer is evaluating Databricks for a lakehouse.",
+  competitor: "Databricks",
+  domain: "lakehouse-modernization",
+  discoveryConfidence: "Sparse",
+  customerSignals: [
+    "Lakehouse evaluation",
+    "Incomplete discovery",
+    "Oracle data gravity likely",
+    "Governance and cost unknown",
+  ],
   inferredPriorities: [
     "Unified analytics and AI across structured and semi-structured data.",
     "Faster experimentation for data science and engineering teams.",
@@ -190,6 +199,22 @@ export const competitiveAssistBrief = {
     "Avoid dismissing Databricks; acknowledge its data science strength and redirect to enterprise operating model.",
     "Ask for one representative workload and produce a side-by-side architecture debate.",
   ],
+  recommendedTalkTrack: [
+    "Acknowledge the appeal of Databricks for data engineering and experimentation.",
+    "Shift the conversation to production controls: Oracle data gravity, governance, cost predictability, and operational ownership.",
+    "Ask for one representative workload so Oracle can compare data movement, latency, security, and run-cost assumptions.",
+  ],
+  battleCardOutput: {
+    headline: "Do not fight the notebook story; reframe around governed production lakehouse operations.",
+    customerConcern:
+      "The customer likely wants faster analytics and AI experimentation but has not yet exposed production governance, cost, or Oracle data integration requirements.",
+    oraclePosition:
+      "Oracle can modernize the lakehouse path around systems of record, GoldenGate, Autonomous Database, OCI Data Lake, and OCI AI Services.",
+    landmine:
+      "Do not dismiss Databricks. Validate its strengths, then make the customer quantify production operating model assumptions.",
+    nextMove:
+      "Feed this brief into Debate Arena with data engineering, security, economics, and Oracle modernization agents.",
+  },
   feeds: {
     debateArena:
       "Seed agents for data engineering, AI governance, cloud economics, security, and Oracle modernization.",

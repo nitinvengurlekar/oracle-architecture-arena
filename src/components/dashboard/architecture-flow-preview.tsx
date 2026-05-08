@@ -7,10 +7,12 @@ import ReactFlow, {
   MarkerType,
   MiniMap,
   Position,
+  ReactFlowProvider,
   type Edge,
   type EdgeTypes,
   type Node,
   type NodeTypes,
+  useStoreApi,
 } from "reactflow"
 
 import type {
@@ -34,6 +36,16 @@ function handleFlowError(code: string, message: string) {
   if (code !== "002") {
     console.warn(message)
   }
+}
+
+function FlowErrorInitializer() {
+  const store = useStoreApi()
+
+  useMemo(() => {
+    store.setState({ onError: handleFlowError })
+  }, [store])
+
+  return null
 }
 
 export function ArchitectureFlowPreview({
@@ -100,22 +112,25 @@ export function ArchitectureFlowPreview({
 
   return (
     <div className="h-[520px] overflow-hidden rounded-md border border-slate-200 bg-white">
-      <ReactFlow
-        nodes={flowNodes}
-        edges={flowEdges}
-        nodeTypes={flowNodeTypes}
-        edgeTypes={flowEdgeTypes}
-        fitView
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={false}
-        proOptions={proOptions}
-        onError={handleFlowError}
-      >
-        <Background color="#cbd5e1" gap={24} />
-        <MiniMap pannable zoomable />
-        <Controls showInteractive={false} />
-      </ReactFlow>
+      <ReactFlowProvider>
+        <FlowErrorInitializer />
+        <ReactFlow
+          nodes={flowNodes}
+          edges={flowEdges}
+          nodeTypes={flowNodeTypes}
+          edgeTypes={flowEdgeTypes}
+          fitView
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={false}
+          proOptions={proOptions}
+          onError={handleFlowError}
+        >
+          <Background color="#cbd5e1" gap={24} />
+          <MiniMap pannable zoomable />
+          <Controls showInteractive={false} />
+        </ReactFlow>
+      </ReactFlowProvider>
     </div>
   )
 }

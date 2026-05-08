@@ -20,6 +20,16 @@ export type ScenarioStage =
 
 export type ScenarioRisk = "Low" | "Medium" | "Elevated" | "Critical"
 
+export type CompetitiveCompetitor =
+  | "Databricks"
+  | "Snowflake"
+  | "AWS"
+  | "Azure"
+  | "Google Cloud"
+  | "Other"
+
+export type DiscoveryConfidence = "Sparse" | "Directional" | "Validated"
+
 export interface NavigationItem {
   title: string
   href: string
@@ -67,16 +77,42 @@ export interface ScoreboardItem {
 
 export interface CompetitiveAssistBrief {
   prompt: string
+  competitor?: CompetitiveCompetitor
+  domain?: StrategyDomain
+  discoveryConfidence?: DiscoveryConfidence
+  customerSignals: string[]
   inferredPriorities: string[]
   discoveryQuestions: string[]
   oracleOpportunities: string[]
   competitorStrengths: string[]
   competitorRisks: string[]
+  recommendedTalkTrack: string[]
   battleCardGuidance: string[]
+  battleCardOutput: {
+    headline: string
+    customerConcern: string
+    oraclePosition: string
+    landmine: string
+    nextMove: string
+  }
   feeds: {
     debateArena: string
     architectureGenerator: string
   }
+}
+
+export interface CompetitiveAssistInput {
+  prompt: string
+  competitor: CompetitiveCompetitor
+  domain: StrategyDomain
+  discoveryConfidence: DiscoveryConfidence
+}
+
+export interface CustomerSignalChip {
+  id: string
+  label: string
+  description: string
+  input: CompetitiveAssistInput
 }
 
 export interface DebateAgent {
