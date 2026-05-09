@@ -221,3 +221,24 @@ export interface WhiteboardSignal {
   detail: string
   tone: WorkbenchTone
 }
+
+export type WhiteboardNoteCategory =
+  | "Context"
+  | "Assumption"
+  | "Risk"
+  | "Decision"
+
+export interface WhiteboardNote {
+  id: string
+  category: WhiteboardNoteCategory
+  title: string
+  body: string
+  tone: WorkbenchTone
+}
+
+export interface WhiteboardAiHook {
+  status: string
+  target: string
+  signals: string[]
+  outputs: string[]
+}

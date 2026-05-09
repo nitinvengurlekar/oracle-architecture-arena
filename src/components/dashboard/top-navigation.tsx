@@ -15,7 +15,7 @@ export function TopNavigation() {
   const title = getNavigationTitle(pathname)
 
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-[1100] border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="flex min-h-16 items-center gap-3 px-4 md:px-6">
         <div className="md:hidden flex size-9 items-center justify-center rounded-md bg-red-600 text-white">
           <Sparkles className="size-4" />

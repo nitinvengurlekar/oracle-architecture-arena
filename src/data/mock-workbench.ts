@@ -9,6 +9,8 @@ import type {
   Scenario,
   ScoreboardItem,
   StrategyDomainSummary,
+  WhiteboardAiHook,
+  WhiteboardNote,
   WhiteboardSignal,
 } from "@/types/workbench"
 
@@ -662,3 +664,44 @@ export const whiteboardSignals = [
     tone: "emerald",
   },
 ] satisfies WhiteboardSignal[]
+
+export const whiteboardNotes = [
+  {
+    id: "note-current-state",
+    category: "Context",
+    title: "Current state",
+    body: "Customer sketch should identify Oracle systems of record, analytics consumers, integration paths, and any external lakehouse platform already in evaluation.",
+    tone: "blue",
+  },
+  {
+    id: "note-assumption",
+    category: "Assumption",
+    title: "Working assumption",
+    body: "Regulated data remains governed in Oracle-controlled production lanes while experimentation can be evaluated through a representative lakehouse workload.",
+    tone: "emerald",
+  },
+  {
+    id: "note-risk",
+    category: "Risk",
+    title: "Open risk",
+    body: "Freshness requirements, existing Databricks spend, model serving concurrency, and data movement cost need validation before final architecture generation.",
+    tone: "amber",
+  },
+] satisfies WhiteboardNote[]
+
+export const whiteboardAiHook = {
+  status: "Ready for local payload",
+  target: "Sketch-to-architecture AI generation",
+  signals: [
+    "Canvas shapes and labels",
+    "Architecture notes",
+    "Debate Arena recommendation",
+    "Generator assumptions",
+  ],
+  outputs: [
+    "Candidate architecture nodes",
+    "Detected integration paths",
+    "Governance and risk annotations",
+    "Architecture Generator seed payload",
+  ],
+} satisfies WhiteboardAiHook
