@@ -5,6 +5,31 @@ import {
   architectureDebate,
   generatedArchitectureBlueprint,
 } from "@/data/mock-workbench"
+import {
+  smokeTestArchitectureBlueprint,
+  smokeTestArchitectureDebate,
+} from "@/data/smoke-test-fixtures"
+
+const architectureHistory = [
+  {
+    id: smokeTestArchitectureBlueprint.id,
+    label: "Smoke test: Transportation authority",
+    description:
+      "Seeded smoke-test architecture with Oracle Exadata, AWS, Databricks, Tableau, Looker, and public-sector controls.",
+    generatedAt: "2026-05-11",
+    blueprint: smokeTestArchitectureBlueprint,
+    recommendation: smokeTestArchitectureDebate.recommendation,
+  },
+  {
+    id: generatedArchitectureBlueprint.id,
+    label: "Baseline: Databricks lakehouse",
+    description:
+      "Original demo architecture for governed Oracle lakehouse modernization.",
+    generatedAt: "Baseline demo",
+    blueprint: generatedArchitectureBlueprint,
+    recommendation: architectureDebate.recommendation,
+  },
+]
 
 export default function ArchitectureGeneratorPage() {
   return (
@@ -16,8 +41,9 @@ export default function ArchitectureGeneratorPage() {
       />
 
       <ArchitectureGeneratorWorkspace
-        blueprint={generatedArchitectureBlueprint}
-        recommendation={architectureDebate.recommendation}
+        blueprint={smokeTestArchitectureBlueprint}
+        recommendation={smokeTestArchitectureDebate.recommendation}
+        history={architectureHistory}
       />
     </AnimatedPage>
   )

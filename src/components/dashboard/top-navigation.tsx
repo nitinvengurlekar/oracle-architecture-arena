@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, Search, ShieldCheck, Sparkles } from "lucide-react"
+import { Bell, Search, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -37,11 +37,6 @@ export function TopNavigation() {
             placeholder="Search scenarios, competitors, workloads"
             className="h-7 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
           />
-        </div>
-
-        <div className="hidden items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900 xl:flex">
-          <ShieldCheck className="size-4" />
-          Sovereign-ready patterns online
         </div>
 
         <Button variant="outline" size="icon" aria-label="Notifications">

@@ -1,33 +1,30 @@
 import { AnimatedPage } from "@/components/dashboard/animated-page"
 import { PageHeader } from "@/components/dashboard/page-header"
-import { ScenarioCard } from "@/components/dashboard/scenario-card"
-import { Scoreboard } from "@/components/dashboard/scoreboard"
+import { ScenariosWorkspace } from "@/components/dashboard/scenarios-workspace"
 import { Button } from "@/components/ui/button"
-import { architectureScoreboard, scenarios } from "@/data/mock-workbench"
+import { scenarios } from "@/data/mock-workbench"
+import Link from "next/link"
 
 export default function ScenariosPage() {
   return (
     <AnimatedPage>
       <PageHeader
-        eyebrow="Scenario command center"
-        title="Strategic pursuit library"
-        description="Track modernization, AI, lakehouse, and sovereign deployment scenarios with customer signal, competitor context, risk level, and next action visible at a glance."
+        eyebrow="Use case catalog"
+        title="Saved pursuit workbench"
+        description="Revisit generated SE Assist outputs, review battle-card guidance, and reopen prior customer use cases from this browser."
         actions={
           <>
-            <Button variant="outline">Import signal</Button>
-            <Button>Create scenario</Button>
+            <Button asChild variant="outline">
+              <Link href="/competitive-se-assist">Import signal</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/competitive-se-assist">Create scenario</Link>
+            </Button>
           </>
         }
       />
 
-      <section className="grid gap-4 xl:grid-cols-[1fr_360px]">
-        <div className="grid gap-4 lg:grid-cols-2">
-          {scenarios.map((scenario) => (
-            <ScenarioCard key={scenario.id} scenario={scenario} />
-          ))}
-        </div>
-        <Scoreboard title="Scenario readiness" items={architectureScoreboard} />
-      </section>
+      <ScenariosWorkspace scenarios={scenarios} />
     </AnimatedPage>
   )
 }

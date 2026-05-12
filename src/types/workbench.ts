@@ -108,6 +108,55 @@ export interface CompetitiveAssistInput {
   discoveryConfidence: DiscoveryConfidence
 }
 
+export type AssistGenerationMode = "llm" | "mock"
+
+export type RagSourceType =
+  | "oracle-capability"
+  | "competitive-context"
+  | "architecture-pattern"
+  | "governance-pattern"
+
+export interface RagDocument {
+  id: string
+  title: string
+  sourceType: RagSourceType
+  domain: StrategyDomain | "cross-domain"
+  competitor?: CompetitiveCompetitor
+  keywords: string[]
+  excerpt: string
+}
+
+export interface RagReference {
+  id: string
+  title: string
+  sourceType: RagSourceType
+  excerpt: string
+  score: number
+}
+
+export interface CompetitiveAssistGenerationResult {
+  brief: CompetitiveAssistBrief
+  mode: AssistGenerationMode
+  model?: string
+  ragContext: RagReference[]
+  warning?: string
+}
+
+export interface UseCaseCatalogItem {
+  id: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  input: CompetitiveAssistInput
+  brief: CompetitiveAssistBrief
+  generation: {
+    mode: AssistGenerationMode
+    model?: string
+    warning?: string
+  }
+  ragContext: RagReference[]
+}
+
 export interface CustomerSignalChip {
   id: string
   label: string
@@ -167,6 +216,24 @@ export interface ArchitectureDebate {
   }
   scores: DebateScore[]
   recommendation: ArchitectureRecommendation
+}
+
+export interface DebateArenaGenerationInput {
+  scenario: string
+  customerContext: string
+  competitor: CompetitiveCompetitor
+  domain: StrategyDomain
+  discoveryConfidence: DiscoveryConfidence
+  assistBrief?: CompetitiveAssistBrief
+}
+
+export interface DebateArenaGenerationResult {
+  debate: ArchitectureDebate
+  mode: AssistGenerationMode
+  model?: string
+  reasoningEffort?: string
+  ragContext: RagReference[]
+  warning?: string
 }
 
 export interface ArchitectureNode {

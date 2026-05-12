@@ -7,11 +7,6 @@ export const dashboardNavigation = [
     description: "Executive command center",
   },
   {
-    title: "Scenarios",
-    href: "/scenarios",
-    description: "Strategic pursuit library",
-  },
-  {
     title: "Competitive SE Assist",
     href: "/competitive-se-assist",
     description: "Battle-card guidance from incomplete signals",
@@ -20,6 +15,11 @@ export const dashboardNavigation = [
     title: "Debate Arena",
     href: "/debate-arena",
     description: "Multi-agent strategy review",
+  },
+  {
+    title: "Scenarios",
+    href: "/scenarios",
+    description: "Saved use case catalog",
   },
   {
     title: "Architecture Generator",

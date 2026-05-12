@@ -1,11 +1,18 @@
 import { ArrowRight, CircleAlert } from "lucide-react"
+import Link from "next/link"
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import type { Scenario } from "@/types/workbench"
 
-export function ScenarioCard({ scenario }: { scenario: Scenario }) {
+export function ScenarioCard({
+  scenario,
+  href = "/competitive-se-assist",
+}: {
+  scenario: Scenario
+  href?: string
+}) {
   return (
     <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
       <CardHeader className="rounded-t-md">
@@ -54,8 +61,10 @@ export function ScenarioCard({ scenario }: { scenario: Scenario }) {
         <p className="flex-1 text-sm leading-6 text-slate-600">
           {scenario.nextAction}
         </p>
-        <Button variant="ghost" size="icon-sm" aria-label="Open scenario">
-          <ArrowRight className="size-4" />
+        <Button asChild variant="ghost" size="icon-sm">
+          <Link href={href} aria-label={`Open ${scenario.title}`}>
+            <ArrowRight className="size-4" />
+          </Link>
         </Button>
       </CardFooter>
     </Card>

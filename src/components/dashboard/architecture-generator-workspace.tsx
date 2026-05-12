@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import {
   Bot,
@@ -20,7 +20,6 @@ import ReactFlow, {
   Controls,
   Handle,
   MarkerType,
-  MiniMap,
   Position,
   ReactFlowProvider,
   type Edge,
@@ -36,6 +35,13 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { getToneClasses } from "@/lib/tone"
 import { cn } from "@/lib/utils"
@@ -50,6 +56,15 @@ import type {
 
 type ArchitectureFlowNodeData = Omit<ArchitectureGeneratorNode, "x" | "y">
 type ArchitectureFlowNode = Node<ArchitectureFlowNodeData>
+
+type ArchitectureHistoryItem = {
+  id: string
+  label: string
+  description: string
+  generatedAt: string
+  blueprint: ArchitectureGeneratorBlueprint
+  recommendation: ArchitectureRecommendation
+}
 
 type EditableNodeField =
   | "label"
@@ -81,6 +96,15 @@ const statusTone = {
   Validated: "emerald",
 } satisfies Record<ArchitectureNodeStatus, WorkbenchTone>
 
+const statusDescriptions = {
+  Generated:
+    "Drafted by the generator and ready for architecture review.",
+  Review:
+    "Needs an SE, architect, or customer-facing review before it is trusted.",
+  Validated:
+    "Accepted for the current architecture draft and ready to carry forward.",
+} satisfies Record<ArchitectureNodeStatus, string>
+
 const statusOptions = ["Generated", "Review", "Validated"] satisfies
   ArchitectureNodeStatus[]
 
@@ -110,17 +134,43 @@ function FlowErrorInitializer() {
 export function ArchitectureGeneratorWorkspace({
   blueprint,
   recommendation,
+  history,
 }: {
   blueprint: ArchitectureGeneratorBlueprint
   recommendation: ArchitectureRecommendation
+  history?: ArchitectureHistoryItem[]
 }) {
+  const architectureHistory = useMemo(
+    () =>
+      history?.length
+        ? history
+        : [
+            {
+              id: blueprint.id,
+              label: blueprint.title,
+              description: blueprint.generatedFrom,
+              generatedAt: "Current draft",
+              blueprint,
+              recommendation,
+            },
+          ],
+    [blueprint, history, recommendation]
+  )
+  const [selectedArchitectureId, setSelectedArchitectureId] = useState(
+    architectureHistory[0]?.id ?? blueprint.id
+  )
+  const activeHistoryItem =
+    architectureHistory.find((item) => item.id === selectedArchitectureId) ??
+    architectureHistory[0]
+  const activeBlueprint = activeHistoryItem.blueprint
+  const activeRecommendation = activeHistoryItem.recommendation
   const initialNodes = useMemo(
-    () => buildFlowNodes(blueprint.nodes),
-    [blueprint.nodes]
+    () => buildFlowNodes(activeBlueprint.nodes),
+    [activeBlueprint.nodes]
   )
   const initialEdges = useMemo(
-    () => buildFlowEdges(blueprint.edges),
-    [blueprint.edges]
+    () => buildFlowEdges(activeBlueprint.edges),
+    [activeBlueprint.edges]
   )
   const [nodes, setNodes, onNodesChange] =
     useNodesState<ArchitectureFlowNodeData>(initialNodes)
@@ -136,6 +186,25 @@ export function ArchitectureGeneratorWorkspace({
   )
   const nodeCards = useMemo(() => nodes.map((node) => node.data), [nodes])
 
+  useEffect(() => {
+    if (
+      architectureHistory.some((item) => item.id === selectedArchitectureId)
+    ) {
+      return
+    }
+
+    setSelectedArchitectureId(architectureHistory[0]?.id ?? blueprint.id)
+  }, [architectureHistory, blueprint.id, selectedArchitectureId])
+
+  useEffect(() => {
+    const nextNodes = buildFlowNodes(activeBlueprint.nodes)
+
+    setNodes(nextNodes)
+    setEdges(buildFlowEdges(activeBlueprint.edges))
+    setSelectedNodeId(nextNodes[0]?.id ?? "")
+    setGenerationVersion(1)
+  }, [activeBlueprint, setEdges, setNodes])
+
   function updateSelectedNode<K extends EditableNodeField>(
     field: K,
     value: ArchitectureFlowNodeData[K]
@@ -150,10 +219,10 @@ export function ArchitectureGeneratorWorkspace({
   }
 
   function regenerateFromDebate() {
-    const nextNodes = buildFlowNodes(blueprint.nodes)
+    const nextNodes = buildFlowNodes(activeBlueprint.nodes)
 
     setNodes(nextNodes)
-    setEdges(buildFlowEdges(blueprint.edges))
+    setEdges(buildFlowEdges(activeBlueprint.edges))
     setSelectedNodeId(nextNodes[0]?.id ?? "")
     setGenerationVersion((version) => version + 1)
   }
@@ -162,8 +231,11 @@ export function ArchitectureGeneratorWorkspace({
     <div className="grid gap-4 2xl:grid-cols-[1fr_430px]">
       <div className="flex flex-col gap-4">
         <GeneratorCommandBar
-          blueprint={blueprint}
+          blueprint={activeBlueprint}
+          history={architectureHistory}
+          selectedArchitectureId={selectedArchitectureId}
           generationVersion={generationVersion}
+          onSelectArchitecture={setSelectedArchitectureId}
           onRegenerate={regenerateFromDebate}
         />
 
@@ -195,6 +267,8 @@ export function ArchitectureGeneratorWorkspace({
                   onEdgesChange={onEdgesChange}
                   onNodeClick={(_, node) => setSelectedNodeId(node.id)}
                   defaultViewport={defaultViewport}
+                  fitView
+                  fitViewOptions={{ padding: 0.16 }}
                   minZoom={0.35}
                   maxZoom={1.2}
                   nodesConnectable={false}
@@ -204,8 +278,12 @@ export function ArchitectureGeneratorWorkspace({
                   onError={handleFlowError}
                 >
                   <Background color="#cbd5e1" gap={24} />
-                  <MiniMap pannable zoomable />
                   <Controls showInteractive={false} />
+                  <ArchitectureMiniMap
+                    nodes={nodes}
+                    selectedNodeId={selectedNodeId}
+                    onSelectNode={setSelectedNodeId}
+                  />
                 </ReactFlow>
               </ReactFlowProvider>
             </div>
@@ -221,8 +299,8 @@ export function ArchitectureGeneratorWorkspace({
 
       <aside className="flex flex-col gap-4">
         <ArchitectureSummaryPanel
-          blueprint={blueprint}
-          recommendation={recommendation}
+          blueprint={activeBlueprint}
+          recommendation={activeRecommendation}
           nodeCount={nodes.length}
         />
         <NodeInspector
@@ -236,17 +314,26 @@ export function ArchitectureGeneratorWorkspace({
 
 function GeneratorCommandBar({
   blueprint,
+  history,
+  selectedArchitectureId,
   generationVersion,
+  onSelectArchitecture,
   onRegenerate,
 }: {
   blueprint: ArchitectureGeneratorBlueprint
+  history: ArchitectureHistoryItem[]
+  selectedArchitectureId: string
   generationVersion: number
+  onSelectArchitecture: (architectureId: string) => void
   onRegenerate: () => void
 }) {
+  const selectedHistoryItem =
+    history.find((item) => item.id === selectedArchitectureId) ?? history[0]
+
   return (
     <Card className="rounded-md border-0 bg-slate-950 text-white shadow-sm ring-slate-900">
-      <CardContent className="grid gap-4 py-4 lg:grid-cols-[1fr_auto] lg:items-center">
-        <div>
+      <CardContent className="grid gap-5 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,400px)] xl:items-start">
+        <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
             <Badge className="rounded-md bg-red-600 text-white">
               Generated from Debate Arena
@@ -265,14 +352,40 @@ function GeneratorCommandBar({
             {blueprint.summary}
           </p>
         </div>
-        <Button
-          variant="outline"
-          className="border-white/20 bg-white text-slate-950 hover:bg-slate-100"
-          onClick={onRegenerate}
-        >
-          <WandSparkles className="size-4" />
-          Generate from debate
-        </Button>
+        <div className="rounded-md border border-white/10 bg-white/5 p-3">
+          <div className="space-y-3">
+            <div className="text-sm font-semibold text-white">
+              Generated architecture history
+            </div>
+            <Select
+              value={selectedArchitectureId}
+              onValueChange={onSelectArchitecture}
+            >
+              <SelectTrigger className="min-h-11 w-full max-w-full rounded-md border-white/20 bg-white text-slate-950">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-w-[min(28rem,calc(100vw-2rem))]">
+                {history.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-2 text-xs leading-5 text-slate-300">
+              {selectedHistoryItem.generatedAt} ·{" "}
+              {selectedHistoryItem.description ?? blueprint.generatedFrom}
+            </p>
+            <Button
+              variant="outline"
+              className="w-full border-white/20 bg-white text-slate-950 hover:bg-slate-100"
+              onClick={onRegenerate}
+            >
+              <WandSparkles className="size-4" />
+              Reset from debate
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   )
@@ -395,6 +508,69 @@ function OciArchitectureCards({
   )
 }
 
+function ArchitectureMiniMap({
+  nodes,
+  selectedNodeId,
+  onSelectNode,
+}: {
+  nodes: ArchitectureFlowNode[]
+  selectedNodeId: string
+  onSelectNode: (nodeId: string) => void
+}) {
+  const bounds = useMemo(() => {
+    const xValues = nodes.map((node) => node.position.x)
+    const yValues = nodes.map((node) => node.position.y)
+
+    return {
+      minX: Math.min(...xValues),
+      maxX: Math.max(...xValues),
+      minY: Math.min(...yValues),
+      maxY: Math.max(...yValues),
+    }
+  }, [nodes])
+  const xRange = Math.max(bounds.maxX - bounds.minX, 1)
+  const yRange = Math.max(bounds.maxY - bounds.minY, 1)
+
+  return (
+    <div className="absolute bottom-4 right-4 z-10 w-60 rounded-md border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Architecture map
+        </div>
+        <Badge variant="outline" className="rounded-md bg-slate-50">
+          {nodes.length} nodes
+        </Badge>
+      </div>
+      <div className="relative mt-3 h-28 rounded-md border border-slate-200 bg-slate-50">
+        {nodes.map((node) => {
+          const tone = getToneClasses(statusTone[node.data.status])
+          const isSelected = node.id === selectedNodeId
+          const left = 8 + ((node.position.x - bounds.minX) / xRange) * 84
+          const top = 10 + ((node.position.y - bounds.minY) / yRange) * 80
+
+          return (
+            <button
+              key={node.id}
+              type="button"
+              title={node.data.ociService}
+              aria-label={`Select ${node.data.ociService}`}
+              onClick={() => onSelectNode(node.id)}
+              className={cn(
+                "absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-sm border transition-transform",
+                tone.soft,
+                isSelected
+                  ? "scale-125 border-red-600 ring-2 ring-red-200"
+                  : "border-slate-300 hover:scale-110"
+              )}
+              style={{ left: `${left}%`, top: `${top}%` }}
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function ArchitectureSummaryPanel({
   blueprint,
   recommendation,
@@ -503,6 +679,8 @@ function NodeInspector({
     return null
   }
 
+  const status = getToneClasses(statusTone[node.data.status])
+
   return (
     <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
       <CardHeader className="rounded-t-md border-b border-slate-200">
@@ -515,9 +693,14 @@ function NodeInspector({
               Node inspector
             </CardTitle>
           </div>
-          <span className="flex size-10 items-center justify-center rounded-md bg-slate-950 text-white">
-            <FileText className="size-5" />
-          </span>
+          <div className="flex flex-col items-end gap-2">
+            <span className="flex size-10 items-center justify-center rounded-md bg-slate-950 text-white">
+              <FileText className="size-5" />
+            </span>
+            <Badge variant="outline" className={cn("rounded-md", status.soft)}>
+              {node.data.status}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -547,25 +730,31 @@ function NodeInspector({
           onChange={(value) => onUpdate("rationale", value)}
         />
         <div>
-          <div className="text-sm font-semibold text-slate-950">
-            Review status
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-semibold text-slate-950">
+              Review status
+            </div>
+            <Badge variant="outline" className={cn("rounded-md", status.soft)}>
+              Current: {node.data.status}
+            </Badge>
           </div>
           <div className="mt-2 grid grid-cols-3 gap-2">
             {statusOptions.map((status) => (
-              <button
+              <StatusButton
                 key={status}
-                type="button"
+                status={status}
+                isSelected={node.data.status === status}
                 onClick={() => onUpdate("status", status)}
-                className={cn(
-                  "rounded-md border px-3 py-2 text-sm font-medium transition-colors",
-                  node.data.status === status
-                    ? "border-red-600 bg-red-600 text-white"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                )}
-              >
-                {status}
-              </button>
+              />
             ))}
+          </div>
+          <div className={cn("mt-3 rounded-md border p-3", status.soft)}>
+            <div className="text-sm font-semibold">
+              {node.data.status}
+            </div>
+            <p className="mt-1 text-xs leading-5">
+              {statusDescriptions[node.data.status]}
+            </p>
           </div>
         </div>
         <SummaryBlock
@@ -575,6 +764,34 @@ function NodeInspector({
         />
       </CardContent>
     </Card>
+  )
+}
+
+function StatusButton({
+  status,
+  isSelected,
+  onClick,
+}: {
+  status: ArchitectureNodeStatus
+  isSelected: boolean
+  onClick: () => void
+}) {
+  const tone = getToneClasses(statusTone[status])
+
+  return (
+    <button
+      type="button"
+      aria-pressed={isSelected}
+      onClick={onClick}
+      className={cn(
+        "rounded-md border px-3 py-2 text-sm font-medium transition-colors",
+        isSelected
+          ? tone.soft
+          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+      )}
+    >
+      {status}
+    </button>
   )
 }
 

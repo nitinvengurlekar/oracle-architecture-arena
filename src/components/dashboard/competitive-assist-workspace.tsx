@@ -1,13 +1,15 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import Link from "next/link"
+import { useEffect, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import {
-  ArrowRight,
   BrainCircuit,
   CircleHelp,
+  DatabaseZap,
   FileText,
   Layers3,
+  Loader2,
   MessageSquareQuote,
   ShieldCheck,
   Sparkles,
@@ -36,27 +38,86 @@ import {
   generateCompetitiveAssistBrief,
 } from "@/lib/competitive-assist"
 import { getToneClasses } from "@/lib/tone"
+import { readUseCaseById, saveUseCaseToCatalog } from "@/lib/use-case-catalog"
 import { cn } from "@/lib/utils"
 import type {
   CompetitiveAssistBrief,
+  CompetitiveAssistGenerationResult,
   CompetitiveAssistInput,
   CompetitiveCompetitor,
   StrategyDomain,
   WorkbenchTone,
 } from "@/types/workbench"
 
+type GenerationMeta = Pick<
+  CompetitiveAssistGenerationResult,
+  "mode" | "model" | "ragContext" | "warning"
+>
+
 export function CompetitiveAssistWorkspace() {
   const [activeSignalId, setActiveSignalId] = useState(customerSignalChips[0].id)
   const [input, setInput] = useState<CompetitiveAssistInput>(
     customerSignalChips[0].input
   )
-  const [submittedInput, setSubmittedInput] =
-    useState<CompetitiveAssistInput>(input)
-
-  const brief = useMemo(
-    () => generateCompetitiveAssistBrief(submittedInput),
-    [submittedInput]
+  const [brief, setBrief] = useState<CompetitiveAssistBrief>(() =>
+    generateCompetitiveAssistBrief(customerSignalChips[0].input)
   )
+  const [generationMeta, setGenerationMeta] = useState<GenerationMeta>({
+    mode: "mock",
+    model: "Local assist engine",
+    ragContext: [],
+  })
+  const [currentUseCaseId, setCurrentUseCaseId] = useState<string>()
+  const [catalogMessage, setCatalogMessage] = useState<string>()
+  const [isGenerating, setIsGenerating] = useState(false)
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+    const params = new URLSearchParams(window.location.search)
+    const useCaseId = params.get("useCaseId")
+
+    if (!useCaseId) {
+      const templateInput = getTemplateInputFromParams(params)
+
+      if (!templateInput) {
+        return
+      }
+
+      setActiveSignalId("template")
+      setInput(templateInput)
+      setBrief(generateCompetitiveAssistBrief(templateInput))
+      setGenerationMeta({
+        mode: "mock",
+        model: "Template starter",
+        ragContext: [],
+      })
+      setCurrentUseCaseId(undefined)
+      setCatalogMessage("Loaded from editable pursuit template. Generate to save.")
+      return
+    }
+
+      const savedUseCase = readUseCaseById(useCaseId)
+
+      if (!savedUseCase) {
+        setCatalogMessage("Saved use case was not found in this browser catalog.")
+        return
+      }
+
+      setActiveSignalId("catalog")
+      setInput(savedUseCase.input)
+      setBrief(savedUseCase.brief)
+      setGenerationMeta({
+        mode: savedUseCase.generation.mode,
+        model: savedUseCase.generation.model,
+        ragContext: savedUseCase.ragContext,
+        warning: savedUseCase.generation.warning,
+      })
+      setCurrentUseCaseId(savedUseCase.id)
+      setCatalogMessage("Loaded from use case catalog.")
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [])
 
   function updateInput<K extends keyof CompetitiveAssistInput>(
     key: K,
@@ -64,6 +125,8 @@ export function CompetitiveAssistWorkspace() {
   ) {
     setInput((current) => ({ ...current, [key]: value }))
     setActiveSignalId("custom")
+    setCurrentUseCaseId(undefined)
+    setCatalogMessage(undefined)
   }
 
   function applySignalChip(signalId: string) {
@@ -75,7 +138,86 @@ export function CompetitiveAssistWorkspace() {
 
     setActiveSignalId(signal.id)
     setInput(signal.input)
-    setSubmittedInput(signal.input)
+    setBrief(generateCompetitiveAssistBrief(signal.input))
+    setGenerationMeta({
+      mode: "mock",
+      model: "Local assist engine",
+      ragContext: [],
+    })
+    setCurrentUseCaseId(undefined)
+    setCatalogMessage(undefined)
+  }
+
+  async function generateAssist() {
+    const fallbackBrief = generateCompetitiveAssistBrief(input)
+
+    setIsGenerating(true)
+
+    try {
+      const response = await fetch("/api/competitive-assist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(input),
+      })
+      const result = (await response.json()) as
+        | CompetitiveAssistGenerationResult
+        | { error?: string }
+
+      if (!response.ok) {
+        throw new Error(
+          "error" in result && result.error
+            ? result.error
+            : "Unable to generate assist."
+        )
+      }
+
+      if (!("brief" in result)) {
+        throw new Error("Unable to generate assist.")
+      }
+
+      setBrief(result.brief)
+      setGenerationMeta({
+        mode: result.mode,
+        model: result.model,
+        ragContext: result.ragContext,
+        warning: result.warning,
+      })
+      const savedUseCase = saveUseCaseToCatalog({
+        existingId: currentUseCaseId,
+        input,
+        result,
+      })
+      setCurrentUseCaseId(savedUseCase.id)
+      setCatalogMessage("Saved to use case catalog.")
+    } catch {
+      setBrief(fallbackBrief)
+      const fallbackResult: CompetitiveAssistGenerationResult = {
+        brief: fallbackBrief,
+        mode: "mock",
+        model: "Local assist engine",
+        ragContext: [],
+        warning:
+          "The live generation request did not complete, so the page used the local fallback assist.",
+      }
+
+      setGenerationMeta({
+        mode: fallbackResult.mode,
+        model: fallbackResult.model,
+        ragContext: fallbackResult.ragContext,
+        warning: fallbackResult.warning,
+      })
+      const savedUseCase = saveUseCaseToCatalog({
+        existingId: currentUseCaseId,
+        input,
+        result: fallbackResult,
+      })
+      setCurrentUseCaseId(savedUseCase.id)
+      setCatalogMessage("Saved fallback output to use case catalog.")
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   return (
@@ -94,16 +236,32 @@ export function CompetitiveAssistWorkspace() {
             Competitive intake
           </CardTitle>
           <p className="text-sm leading-6 text-slate-600">
-            Capture the weak customer signal, select the competitive context,
-            and generate a concise field-ready assist.
+            Use this intake when the customer context is incomplete. Start from
+            what you know, then let the SE Assistant and Discovery Agent infer
+            likely priorities, questions, and Oracle positioning.
           </p>
         </CardHeader>
 
         <CardContent className="space-y-5">
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+            <div className="text-sm font-semibold text-slate-950">
+              How an SE uses this
+            </div>
+            <p className="mt-2 text-xs leading-5 text-slate-600">
+              Pick the competitor the customer named, choose a starter scenario
+              if one fits, then refine the customer context and strategy domain
+              before generating guidance.
+            </p>
+          </div>
+
           <div>
             <div className="text-sm font-semibold text-slate-950">
               Competitor selector
             </div>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Sets the competitive lens for strengths, risks, talk track, and
+              later Debate Arena prompts.
+            </p>
             <Select
               value={input.competitor}
               onValueChange={(value) =>
@@ -125,8 +283,13 @@ export function CompetitiveAssistWorkspace() {
 
           <div>
             <div className="text-sm font-semibold text-slate-950">
-              Customer signal chips
+              Starter scenarios
             </div>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              These shortcuts prefill the competitor, strategy domain,
+              confidence level, and customer context. Use one when the pursuit
+              resembles a common compete motion, then edit the details below.
+            </p>
             <div className="mt-2 grid gap-2">
               {customerSignalChips.map((signal) => {
                 const isActive = activeSignalId === signal.id
@@ -165,8 +328,13 @@ export function CompetitiveAssistWorkspace() {
               htmlFor="customer-signal"
               className="text-sm font-semibold text-slate-950"
             >
-              Raw customer signal
+              Customer context
             </label>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Paste the customer’s wording, account notes, or rough compete
+              statement. This becomes the source material for the generated
+              questions, positioning, talk track, and battle card.
+            </p>
             <Textarea
               id="customer-signal"
               value={input.prompt}
@@ -180,6 +348,11 @@ export function CompetitiveAssistWorkspace() {
               <div className="text-sm font-semibold text-slate-950">
                 Strategy domain
               </div>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Use this when the same competitor could mean different
+                conversations, such as Snowflake for lakehouse versus Azure for
+                AI platform strategy.
+              </p>
               <Select
                 value={input.domain}
                 onValueChange={(value) =>
@@ -203,6 +376,10 @@ export function CompetitiveAssistWorkspace() {
               <div className="text-sm font-semibold text-slate-950">
                 Discovery confidence
               </div>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Tell the model how much is known. Sparse keeps assumptions
+                visible; validated produces firmer field guidance.
+              </p>
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {discoveryConfidenceLevels.map((level) => (
                   <button
@@ -223,19 +400,45 @@ export function CompetitiveAssistWorkspace() {
             </div>
           </div>
 
-          <Button className="w-full" onClick={() => setSubmittedInput(input)}>
-            <WandSparkles className="size-4" />
-            Generate field assist
+          <Button
+            className="w-full"
+            onClick={generateAssist}
+            disabled={isGenerating || input.prompt.trim().length === 0}
+          >
+            {isGenerating ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <WandSparkles className="size-4" />
+            )}
+            {isGenerating ? "Generating with OpenAI" : "Generate field assist"}
           </Button>
+
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+            <div className="text-sm font-semibold text-slate-950">
+              How this drives the output
+            </div>
+            <p className="mt-2 text-xs leading-5 text-slate-600">
+              The selections on the left control the generated panels on the
+              right. Competitor shapes strengths and risks, strategy domain
+              shapes Oracle positioning, and confidence controls how cautious
+              the SE Assistant should be. Each generation is saved to the use
+              case catalog and becomes available in Debate Arena.
+            </p>
+          </div>
+
+          <CatalogStatusCard
+            message={catalogMessage}
+            currentUseCaseId={currentUseCaseId}
+          />
         </CardContent>
       </Card>
 
-      <div className="flex flex-col gap-4">
-        <AssistCommandBar brief={brief} />
+      <div className="flex min-w-0 flex-col gap-4">
+        <AssistCommandBar brief={brief} isGenerating={isGenerating} />
 
-        <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+        <section className="grid items-stretch gap-4 lg:grid-cols-2">
           <ConsolePanel
-            title="Discovery question generator"
+            title="Discovery Agent questions"
             icon={CircleHelp}
             tone="blue"
             eyebrow="Ask next"
@@ -253,7 +456,7 @@ export function CompetitiveAssistWorkspace() {
           </ConsolePanel>
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-2">
+        <section className="grid items-stretch gap-4 lg:grid-cols-2">
           <ConsolePanel
             title="Competitor strengths panel"
             icon={Trophy}
@@ -273,39 +476,115 @@ export function CompetitiveAssistWorkspace() {
           </ConsolePanel>
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-[1fr_360px]">
+        <section>
           <BattleCardOutput brief={brief} />
-          <div className="grid gap-4">
-            <HandoffCard
-              title="Debate Arena"
-              icon={BrainCircuit}
-              description={brief.feeds.debateArena}
-              status="Agent prompts ready"
-            />
-            <HandoffCard
-              title="Architecture Generator"
-              icon={Layers3}
-              description={brief.feeds.architectureGenerator}
-              status="Blueprint inputs ready"
-            />
-          </div>
         </section>
+
+        <WorkflowHandoffStrip
+          debateDescription={brief.feeds.debateArena}
+          architectureDescription={brief.feeds.architectureGenerator}
+          ragCount={generationMeta.ragContext.length}
+        />
       </div>
     </div>
   )
 }
 
-function AssistCommandBar({ brief }: { brief: CompetitiveAssistBrief }) {
+function getTemplateInputFromParams(
+  params: URLSearchParams
+): CompetitiveAssistInput | undefined {
+  const prompt = params.get("prompt")?.trim()
+  const competitor = params.get("competitor")
+  const domain = params.get("domain")
+  const discoveryConfidence = params.get("discoveryConfidence")
+
+  if (
+    !prompt ||
+    !isCompetitiveCompetitor(competitor) ||
+    !isStrategyDomain(domain) ||
+    !isDiscoveryConfidence(discoveryConfidence)
+  ) {
+    return undefined
+  }
+
+  return {
+    prompt,
+    competitor,
+    domain,
+    discoveryConfidence,
+  }
+}
+
+function isCompetitiveCompetitor(
+  value: string | null
+): value is CompetitiveCompetitor {
+  return competitiveCompetitors.includes(value as CompetitiveCompetitor)
+}
+
+function isStrategyDomain(value: string | null): value is StrategyDomain {
+  return competitiveDomains.some((domain) => domain.value === value)
+}
+
+function isDiscoveryConfidence(
+  value: string | null
+): value is CompetitiveAssistInput["discoveryConfidence"] {
+  return discoveryConfidenceLevels.includes(
+    value as CompetitiveAssistInput["discoveryConfidence"]
+  )
+}
+
+function CatalogStatusCard({
+  message,
+  currentUseCaseId,
+}: {
+  message?: string
+  currentUseCaseId?: string
+}) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="text-sm font-semibold text-slate-950">
+            Use case catalog
+          </div>
+      <p className="mt-1 text-xs leading-5 text-slate-600">
+        {message ??
+          "Generate with the SE Assistant to save this use case for Scenarios and Debate Arena."}
+      </p>
+        </div>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/scenarios">View catalog</Link>
+        </Button>
+      </div>
+      {currentUseCaseId ? (
+        <div className="mt-2 truncate rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-500">
+          {currentUseCaseId}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function AssistCommandBar({
+  brief,
+  isGenerating,
+}: {
+  brief: CompetitiveAssistBrief
+  isGenerating: boolean
+}) {
   return (
     <Card className="rounded-md border-0 bg-slate-950 text-white shadow-sm ring-slate-900">
-      <CardContent className="grid gap-4 py-4 lg:grid-cols-[1fr_auto] lg:items-center">
-        <div>
+      <CardContent className="grid gap-4 py-4 xl:grid-cols-[minmax(0,1fr)_minmax(260px,340px)] xl:items-stretch">
+        <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
             <Badge className="rounded-md bg-white text-slate-950">
               {brief.competitor}
             </Badge>
             <Badge className="rounded-md bg-red-600 text-white">
-              {brief.discoveryConfidence} discovery
+              {brief.discoveryConfidence} Discovery Agent confidence
+            </Badge>
+            <Badge className="rounded-md bg-white/10 text-white">
+              {isGenerating ? "Generating" : "Generated guidance"}
             </Badge>
           </div>
           <h3 className="mt-3 text-lg font-semibold text-white">
@@ -322,20 +601,41 @@ function AssistCommandBar({ brief }: { brief: CompetitiveAssistBrief }) {
             ))}
           </div>
         </div>
-        <div className="grid gap-2 text-sm sm:grid-cols-2 lg:w-72 lg:grid-cols-1">
-          <ReadinessStat label="Priorities" value={brief.inferredPriorities.length} />
-          <ReadinessStat label="Battle card points" value={brief.battleCardGuidance.length} />
+        <div className="grid min-w-0 gap-2 text-sm sm:grid-cols-2">
+          <ReadinessStat
+            label="Likely priorities"
+            value={brief.inferredPriorities.length}
+            description="Customer needs the SE Assistant inferred from the context. Treat them as hypotheses until the Discovery Agent validates them."
+          />
+          <ReadinessStat
+            label="Field guidance points"
+            value={brief.battleCardGuidance.length}
+            description="Concise battle-card recommendations the SE can use in a prep call or customer conversation."
+          />
         </div>
       </CardContent>
     </Card>
   )
 }
 
-function ReadinessStat({ label, value }: { label: string; value: number }) {
+function ReadinessStat({
+  label,
+  value,
+  description,
+}: {
+  label: string
+  value: number
+  description: string
+}) {
   return (
-    <div className="rounded-md border border-white/10 bg-white/10 p-3">
+    <div
+      className="rounded-md border border-white/10 bg-white/10 p-3"
+      title={description}
+      aria-label={`${label}: ${description}`}
+    >
       <div className="text-xs text-slate-300">{label}</div>
       <div className="mt-1 text-2xl font-semibold text-white">{value}</div>
+      <p className="mt-2 text-xs leading-5 text-slate-300">{description}</p>
     </div>
   )
 }
@@ -347,7 +647,7 @@ function ConsolePanel({
   tone,
   children,
 }: {
-  title: string
+      title: string
   eyebrow: string
   icon: LucideIcon
   tone: WorkbenchTone
@@ -356,7 +656,7 @@ function ConsolePanel({
   const toneClass = getToneClasses(tone)
 
   return (
-    <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
+    <Card className="h-full rounded-md border-0 bg-white shadow-sm ring-slate-200">
       <CardHeader className="rounded-t-md">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -431,7 +731,7 @@ function BattleCardOutput({ brief }: { brief: CompetitiveAssistBrief }) {
   ]
 
   return (
-    <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
+    <Card className="h-full rounded-md border-0 bg-white shadow-sm ring-slate-200">
       <CardHeader className="rounded-t-md border-b border-slate-200">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -449,7 +749,10 @@ function BattleCardOutput({ brief }: { brief: CompetitiveAssistBrief }) {
       </CardHeader>
       <CardContent className="space-y-4">
         {rows.map((row) => (
-          <div key={row.label} className="rounded-md border border-slate-200 bg-slate-50 p-4">
+          <div
+            key={row.label}
+            className="rounded-md border border-slate-200 bg-slate-50 p-4"
+          >
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               {row.label}
             </div>
@@ -474,39 +777,62 @@ function BattleCardOutput({ brief }: { brief: CompetitiveAssistBrief }) {
   )
 }
 
-function HandoffCard({
-  title,
-  icon: Icon,
-  description,
-  status,
+function WorkflowHandoffStrip({
+  debateDescription,
+  architectureDescription,
+  ragCount,
 }: {
-  title: string
-  icon: LucideIcon
-  description: string
-  status: string
+  debateDescription: string
+  architectureDescription: string
+  ragCount: number
 }) {
   return (
     <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
-      <CardHeader className="rounded-t-md">
-        <div className="flex items-center justify-between gap-3">
-          <span className="flex size-10 items-center justify-center rounded-md bg-slate-950 text-white">
-            <Icon className="size-5" />
-          </span>
-          <Badge variant="outline" className="rounded-md bg-slate-50">
-            {status}
-          </Badge>
-        </div>
-        <CardTitle className="pt-2 text-lg font-semibold text-slate-950">
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm leading-6 text-slate-600">{description}</p>
-        <div className="mt-4 flex items-center gap-2 text-sm font-medium text-red-700">
-          Route output
-          <ArrowRight className="size-4" />
-        </div>
+      <CardContent className="grid gap-3 py-4 lg:grid-cols-3">
+        <HandoffStripItem
+          icon={BrainCircuit}
+          label="Debate Arena"
+          body={debateDescription}
+        />
+        <HandoffStripItem
+          icon={Layers3}
+          label="Architecture Generator"
+          body={architectureDescription}
+        />
+        <HandoffStripItem
+          icon={DatabaseZap}
+          label="Knowledge context"
+          body={
+            ragCount > 0
+              ? `${ragCount} retrieval references are attached to this use case.`
+              : "RAG context will attach after generation."
+          }
+        />
       </CardContent>
     </Card>
+  )
+}
+
+function HandoffStripItem({
+  icon: Icon,
+  label,
+  body,
+}: {
+  icon: LucideIcon
+  label: string
+  body: string
+}) {
+  return (
+    <div className="flex gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white text-slate-700 ring-1 ring-slate-200">
+        <Icon className="size-4" />
+      </span>
+      <div className="min-w-0">
+        <div className="text-sm font-semibold text-slate-950">{label}</div>
+        <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-600">
+          {body}
+        </p>
+      </div>
+    </div>
   )
 }
