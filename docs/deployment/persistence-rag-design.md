@@ -2,7 +2,7 @@
 
 Date: 2026-05-12
 Branch: `codex/deployment-hardening`
-Scope: Autonomous Database persistence, Object Storage document landing zone, and future RAG search for Oracle Architecture Arena.
+Scope: Autonomous Database persistence, VM filesystem artifact storage for the pilot, future Object Storage migration, and future RAG search for Oracle Architecture Arena.
 
 ## Current App State
 
@@ -25,8 +25,9 @@ flowchart LR
   API --> Services["Server-side services"]
   Services --> ADB["Oracle Autonomous Database"]
   Services --> OpenAI["OpenAI Responses and Embeddings APIs"]
-  Services --> ObjectStorage["OCI Object Storage"]
-  ObjectStorage --> Ingest["Document ingestion worker"]
+  Services --> FileStore["VM local artifact store"]
+  FileStore --> Ingest["Document ingestion worker"]
+  Services -. "future" .-> ObjectStorage["OCI Object Storage"]
   Ingest --> OpenAI
   Ingest --> ADB
   ADB --> Retrieval["ADB vector and metadata retrieval"]
@@ -35,8 +36,9 @@ flowchart LR
 
 Primary responsibilities:
 
-- Autonomous Database is the system of record for use cases, generated SE Assistant outputs, Debate Arena runs, architecture blueprints, whiteboard metadata, smoke test runs, and RAG chunks.
-- Object Storage is the durable landing zone for source knowledge documents, uploaded artifacts, smoke-test recordings, screenshots, whiteboard exports, and generated briefs.
+- Autonomous Database is the system of record for use cases, generated SE Assistant outputs, Debate Arena runs, architecture blueprints, whiteboard metadata, smoke test runs, artifact metadata, and RAG chunks.
+- VM local filesystem is the pilot artifact store for source knowledge documents, uploaded artifacts, smoke-test recordings, screenshots, whiteboard exports, and generated briefs.
+- OCI Object Storage remains the recommended long-term artifact store once backup, retention, and team access requirements firm up.
 - OpenAI remains the generation layer for SE Assistant and Debate Arena.
 - OpenAI embeddings can power the first vector-search implementation. The schema should leave room to switch or add OCI Generative AI embeddings later.
 
@@ -44,7 +46,7 @@ Primary responsibilities:
 
 - Preserve generated artifacts as JSON so the app can evolve without constant table churn.
 - Promote important filter fields into relational columns for fast catalog views.
-- Store source documents in Object Storage, not directly in database rows.
+- Store source documents in the artifact store, not directly in database rows. For the pilot this is the VM filesystem; later it can be OCI Object Storage.
 - Store chunks, metadata, and vectors in Autonomous Database for retrieval.
 - Keep all OpenAI and Oracle credentials server-side only.
 - Do not add authentication yet, but include nullable ownership fields so auth can be added without a schema rewrite.
@@ -212,9 +214,22 @@ fetch first :limit rows only;
 
 The retrieval service should return the same `RagReference[]` shape the UI already understands, plus internal IDs for traceability.
 
-## Object Storage Layout
+## Artifact Storage Layout
 
-Use private buckets. For public-sector and sovereign conversations, assume no public bucket access.
+For the pilot, use a private VM directory outside the repo:
+
+```text
+/var/lib/oracle-architecture-arena/artifacts/
+  knowledge/
+  smoke-tests/
+  whiteboards/
+  briefs/
+  architecture-blueprints/
+```
+
+ADB should store artifact metadata and file paths in `oaa_artifacts`. This keeps the app portable when the artifact store moves to Object Storage later.
+
+When moving to Object Storage, use private buckets. For public-sector and sovereign conversations, assume no public bucket access.
 
 Recommended buckets or prefixes:
 
