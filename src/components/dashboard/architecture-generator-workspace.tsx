@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import {
   Bot,
@@ -159,8 +159,15 @@ export function ArchitectureGeneratorWorkspace({
   const [selectedArchitectureId, setSelectedArchitectureId] = useState(
     architectureHistory[0]?.id ?? blueprint.id
   )
+  const normalizedSelectedArchitectureId = architectureHistory.some(
+    (item) => item.id === selectedArchitectureId
+  )
+    ? selectedArchitectureId
+    : architectureHistory[0]?.id ?? blueprint.id
   const activeHistoryItem =
-    architectureHistory.find((item) => item.id === selectedArchitectureId) ??
+    architectureHistory.find(
+      (item) => item.id === normalizedSelectedArchitectureId
+    ) ??
     architectureHistory[0]
   const activeBlueprint = activeHistoryItem.blueprint
   const activeRecommendation = activeHistoryItem.recommendation
@@ -179,31 +186,17 @@ export function ArchitectureGeneratorWorkspace({
     initialNodes[0]?.id ?? ""
   )
   const [generationVersion, setGenerationVersion] = useState(1)
+  const normalizedSelectedNodeId = nodes.some(
+    (node) => node.id === selectedNodeId
+  )
+    ? selectedNodeId
+    : nodes[0]?.id ?? ""
 
   const selectedNode = useMemo(
-    () => nodes.find((node) => node.id === selectedNodeId),
-    [nodes, selectedNodeId]
+    () => nodes.find((node) => node.id === normalizedSelectedNodeId),
+    [nodes, normalizedSelectedNodeId]
   )
   const nodeCards = useMemo(() => nodes.map((node) => node.data), [nodes])
-
-  useEffect(() => {
-    if (
-      architectureHistory.some((item) => item.id === selectedArchitectureId)
-    ) {
-      return
-    }
-
-    setSelectedArchitectureId(architectureHistory[0]?.id ?? blueprint.id)
-  }, [architectureHistory, blueprint.id, selectedArchitectureId])
-
-  useEffect(() => {
-    const nextNodes = buildFlowNodes(activeBlueprint.nodes)
-
-    setNodes(nextNodes)
-    setEdges(buildFlowEdges(activeBlueprint.edges))
-    setSelectedNodeId(nextNodes[0]?.id ?? "")
-    setGenerationVersion(1)
-  }, [activeBlueprint, setEdges, setNodes])
 
   function updateSelectedNode<K extends EditableNodeField>(
     field: K,
@@ -211,7 +204,7 @@ export function ArchitectureGeneratorWorkspace({
   ) {
     setNodes((currentNodes) =>
       currentNodes.map((node) =>
-        node.id === selectedNodeId
+        node.id === normalizedSelectedNodeId
           ? { ...node, data: { ...node.data, [field]: value } }
           : node
       )
@@ -233,9 +226,20 @@ export function ArchitectureGeneratorWorkspace({
         <GeneratorCommandBar
           blueprint={activeBlueprint}
           history={architectureHistory}
-          selectedArchitectureId={selectedArchitectureId}
+          selectedArchitectureId={normalizedSelectedArchitectureId}
           generationVersion={generationVersion}
-          onSelectArchitecture={setSelectedArchitectureId}
+          onSelectArchitecture={(architectureId) => {
+            const nextHistoryItem =
+              architectureHistory.find((item) => item.id === architectureId) ??
+              architectureHistory[0]
+            const nextNodes = buildFlowNodes(nextHistoryItem.blueprint.nodes)
+
+            setSelectedArchitectureId(architectureId)
+            setNodes(nextNodes)
+            setEdges(buildFlowEdges(nextHistoryItem.blueprint.edges))
+            setSelectedNodeId(nextNodes[0]?.id ?? "")
+            setGenerationVersion(1)
+          }}
           onRegenerate={regenerateFromDebate}
         />
 
@@ -281,7 +285,7 @@ export function ArchitectureGeneratorWorkspace({
                   <Controls showInteractive={false} />
                   <ArchitectureMiniMap
                     nodes={nodes}
-                    selectedNodeId={selectedNodeId}
+                    selectedNodeId={normalizedSelectedNodeId}
                     onSelectNode={setSelectedNodeId}
                   />
                 </ReactFlow>
@@ -292,7 +296,7 @@ export function ArchitectureGeneratorWorkspace({
 
         <OciArchitectureCards
           nodes={nodeCards}
-          selectedNodeId={selectedNodeId}
+          selectedNodeId={normalizedSelectedNodeId}
           onSelectNode={setSelectedNodeId}
         />
       </div>
