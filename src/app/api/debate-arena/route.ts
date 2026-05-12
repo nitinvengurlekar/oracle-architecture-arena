@@ -2,6 +2,7 @@ import { debateArenaInputSchema } from "@/lib/debate-arena-contract"
 import { generateDebateArenaWithLlm } from "@/lib/openai-debate-arena"
 
 export const runtime = "nodejs"
+export const maxDuration = 180
 
 export async function POST(request: Request) {
   let payload: unknown
