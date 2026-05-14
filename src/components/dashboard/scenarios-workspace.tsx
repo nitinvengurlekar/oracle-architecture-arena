@@ -23,7 +23,7 @@ import {
   competitiveDomains,
   discoveryConfidenceLevels,
 } from "@/lib/competitive-assist"
-import { readUseCaseCatalog } from "@/lib/use-case-catalog"
+import { loadUseCaseCatalog } from "@/lib/use-case-catalog"
 import type {
   CompetitiveAssistInput,
   CompetitiveCompetitor,
@@ -56,15 +56,23 @@ export function ScenariosWorkspace({ scenarios }: { scenarios: Scenario[] }) {
   )
 
   useEffect(() => {
+    let isActive = true
     const timeoutId = window.setTimeout(() => {
-      const items = readUseCaseCatalog()
+      void loadUseCaseCatalog().then((items) => {
+        if (!isActive) {
+          return
+        }
 
-      setCatalogItems(items)
-      setSelectedUseCaseId((current) => current ?? items[0]?.id)
-      setHasLoadedCatalog(true)
+        setCatalogItems(items)
+        setSelectedUseCaseId((current) => current ?? items[0]?.id)
+        setHasLoadedCatalog(true)
+      })
     }, 0)
 
-    return () => window.clearTimeout(timeoutId)
+    return () => {
+      isActive = false
+      window.clearTimeout(timeoutId)
+    }
   }, [])
 
   function updateTemplate<K extends keyof EditableTemplate>(

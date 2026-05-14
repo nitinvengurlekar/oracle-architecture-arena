@@ -38,7 +38,10 @@ import {
   generateCompetitiveAssistBrief,
 } from "@/lib/competitive-assist"
 import { getToneClasses } from "@/lib/tone"
-import { readUseCaseById, saveUseCaseToCatalog } from "@/lib/use-case-catalog"
+import {
+  loadUseCaseById,
+  saveUseCaseWithPersistence,
+} from "@/lib/use-case-catalog"
 import { cn } from "@/lib/utils"
 import type {
   CompetitiveAssistBrief,
@@ -72,51 +75,63 @@ export function CompetitiveAssistWorkspace() {
   const [isGenerating, setIsGenerating] = useState(false)
 
   useEffect(() => {
+    let isActive = true
     const timeoutId = window.setTimeout(() => {
-    const params = new URLSearchParams(window.location.search)
-    const useCaseId = params.get("useCaseId")
+      void (async () => {
+        const params = new URLSearchParams(window.location.search)
+        const useCaseId = params.get("useCaseId")
 
-    if (!useCaseId) {
-      const templateInput = getTemplateInputFromParams(params)
+        if (!useCaseId) {
+          const templateInput = getTemplateInputFromParams(params)
 
-      if (!templateInput) {
-        return
-      }
+          if (!templateInput || !isActive) {
+            return
+          }
 
-      setActiveSignalId("template")
-      setInput(templateInput)
-      setBrief(generateCompetitiveAssistBrief(templateInput))
-      setGenerationMeta({
-        mode: "mock",
-        model: "Template starter",
-        ragContext: [],
-      })
-      setCurrentUseCaseId(undefined)
-      setCatalogMessage("Loaded from editable pursuit template. Generate to save.")
-      return
-    }
+          setActiveSignalId("template")
+          setInput(templateInput)
+          setBrief(generateCompetitiveAssistBrief(templateInput))
+          setGenerationMeta({
+            mode: "mock",
+            model: "Template starter",
+            ragContext: [],
+          })
+          setCurrentUseCaseId(undefined)
+          setCatalogMessage(
+            "Loaded from editable pursuit template. Generate to save."
+          )
+          return
+        }
 
-      const savedUseCase = readUseCaseById(useCaseId)
+        const savedUseCase = await loadUseCaseById(useCaseId)
 
-      if (!savedUseCase) {
-        setCatalogMessage("Saved use case was not found in this browser catalog.")
-        return
-      }
+        if (!isActive) {
+          return
+        }
 
-      setActiveSignalId("catalog")
-      setInput(savedUseCase.input)
-      setBrief(savedUseCase.brief)
-      setGenerationMeta({
-        mode: savedUseCase.generation.mode,
-        model: savedUseCase.generation.model,
-        ragContext: savedUseCase.ragContext,
-        warning: savedUseCase.generation.warning,
-      })
-      setCurrentUseCaseId(savedUseCase.id)
-      setCatalogMessage("Loaded from use case catalog.")
+        if (!savedUseCase) {
+          setCatalogMessage("Saved use case was not found in the catalog.")
+          return
+        }
+
+        setActiveSignalId("catalog")
+        setInput(savedUseCase.input)
+        setBrief(savedUseCase.brief)
+        setGenerationMeta({
+          mode: savedUseCase.generation.mode,
+          model: savedUseCase.generation.model,
+          ragContext: savedUseCase.ragContext,
+          warning: savedUseCase.generation.warning,
+        })
+        setCurrentUseCaseId(savedUseCase.id)
+        setCatalogMessage("Loaded from use case catalog.")
+      })()
     }, 0)
 
-    return () => window.clearTimeout(timeoutId)
+    return () => {
+      isActive = false
+      window.clearTimeout(timeoutId)
+    }
   }, [])
 
   function updateInput<K extends keyof CompetitiveAssistInput>(
@@ -184,13 +199,17 @@ export function CompetitiveAssistWorkspace() {
         ragContext: result.ragContext,
         warning: result.warning,
       })
-      const savedUseCase = saveUseCaseToCatalog({
+      const savedUseCase = await saveUseCaseWithPersistence({
         existingId: currentUseCaseId,
         input,
         result,
       })
-      setCurrentUseCaseId(savedUseCase.id)
-      setCatalogMessage("Saved to use case catalog.")
+      setCurrentUseCaseId(savedUseCase.item.id)
+      setCatalogMessage(
+        savedUseCase.source === "database"
+          ? "Saved to database-backed use case catalog."
+          : "Saved to browser catalog until ADB is ready."
+      )
     } catch {
       setBrief(fallbackBrief)
       const fallbackResult: CompetitiveAssistGenerationResult = {
@@ -208,13 +227,17 @@ export function CompetitiveAssistWorkspace() {
         ragContext: fallbackResult.ragContext,
         warning: fallbackResult.warning,
       })
-      const savedUseCase = saveUseCaseToCatalog({
+      const savedUseCase = await saveUseCaseWithPersistence({
         existingId: currentUseCaseId,
         input,
         result: fallbackResult,
       })
-      setCurrentUseCaseId(savedUseCase.id)
-      setCatalogMessage("Saved fallback output to use case catalog.")
+      setCurrentUseCaseId(savedUseCase.item.id)
+      setCatalogMessage(
+        savedUseCase.source === "database"
+          ? "Saved fallback output to database-backed use case catalog."
+          : "Saved fallback output to browser catalog until ADB is ready."
+      )
     } finally {
       setIsGenerating(false)
     }

@@ -7,7 +7,7 @@ import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { readUseCaseCatalog } from "@/lib/use-case-catalog"
+import { loadUseCaseCatalog } from "@/lib/use-case-catalog"
 import { cn } from "@/lib/utils"
 import type { UseCaseCatalogItem } from "@/types/workbench"
 
@@ -41,12 +41,22 @@ export function UseCaseCatalog({
       return
     }
 
+    let isActive = true
     const timeoutId = window.setTimeout(() => {
-      setLocalItems(readUseCaseCatalog())
-      setLocalHasLoaded(true)
+      void loadUseCaseCatalog().then((items) => {
+        if (!isActive) {
+          return
+        }
+
+        setLocalItems(items)
+        setLocalHasLoaded(true)
+      })
     }, 0)
 
-    return () => window.clearTimeout(timeoutId)
+    return () => {
+      isActive = false
+      window.clearTimeout(timeoutId)
+    }
   }, [controlledItems])
 
   if (!hasLoaded) {

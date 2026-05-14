@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select"
 import { competitiveCompetitors } from "@/lib/competitive-assist"
 import { getToneClasses } from "@/lib/tone"
-import { readUseCaseCatalog } from "@/lib/use-case-catalog"
+import { loadUseCaseCatalog } from "@/lib/use-case-catalog"
 import { cn } from "@/lib/utils"
 import type {
   ArchitectureDebate,
@@ -100,18 +100,26 @@ export function DebateArenaWorkspace({
   )
 
   useEffect(() => {
+    let isActive = true
     const timeoutId = window.setTimeout(() => {
-      const items = readUseCaseCatalog()
+      void loadUseCaseCatalog().then((items) => {
+        if (!isActive) {
+          return
+        }
 
-      setCatalogItems(items)
+        setCatalogItems(items)
 
-      if (items[0]) {
-        setSelectedUseCaseId(items[0].id)
-        setSelectedCompetitor(items[0].input.competitor)
-      }
+        if (items[0]) {
+          setSelectedUseCaseId(items[0].id)
+          setSelectedCompetitor(items[0].input.competitor)
+        }
+      })
     }, 0)
 
-    return () => window.clearTimeout(timeoutId)
+    return () => {
+      isActive = false
+      window.clearTimeout(timeoutId)
+    }
   }, [])
 
   function updateSelectedUseCase(value: string) {

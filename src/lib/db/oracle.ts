@@ -77,6 +77,38 @@ type HealthQueryRow = {
 
 let poolPromise: Promise<oracledb.Pool> | undefined
 
+export class OracleDatabaseConfigurationError extends Error {
+  constructor(
+    readonly missingEnvironment: string[],
+    readonly missingWalletFiles: string[]
+  ) {
+    super("Oracle Database is not configured.")
+    this.name = "OracleDatabaseConfigurationError"
+  }
+}
+
+export async function withOracleConnection<T>(
+  operation: (connection: oracledb.Connection) => Promise<T>
+) {
+  const configStatus = readOracleDbConfig()
+
+  if (!configStatus.configured) {
+    throw new OracleDatabaseConfigurationError(
+      configStatus.missingEnvironment,
+      configStatus.missingWalletFiles
+    )
+  }
+
+  const pool = await getOraclePool(configStatus.config)
+  const connection = await pool.getConnection()
+
+  try {
+    return await operation(connection)
+  } finally {
+    await connection.close()
+  }
+}
+
 export async function checkOracleDatabaseHealth(): Promise<OracleDatabaseHealth> {
   const configStatus = readOracleDbConfig()
   const checkedAt = new Date().toISOString()
