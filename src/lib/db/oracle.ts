@@ -187,6 +187,9 @@ async function getOraclePool(config: OracleDbConfig) {
         poolMin: config.poolMin,
         poolMax: config.poolMax,
         poolIncrement: config.poolIncrement,
+        queueTimeout: 5000,
+        connectTimeout: 5,
+        transportConnectTimeout: 5,
       })
       .catch((error) => {
         poolPromise = undefined
@@ -333,6 +336,11 @@ function normalizeOracleError(error: unknown, config: OracleDbConfig) {
     "errorNum" in error &&
     typeof error.errorNum === "number"
       ? `ORA-${error.errorNum}`
+      : typeof error === "object" &&
+          error !== null &&
+          "code" in error &&
+          typeof error.code === "string"
+        ? error.code
       : undefined
   const message =
     error instanceof Error ? redactConfigValues(error.message, config) : "Unknown Oracle Database error."

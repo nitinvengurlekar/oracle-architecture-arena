@@ -261,7 +261,11 @@ export async function saveUseCase({
 }
 
 export function isPersistenceUnavailable(error: unknown) {
-  return error instanceof OracleDatabaseConfigurationError || isMissingSchemaError(error)
+  return (
+    error instanceof OracleDatabaseConfigurationError ||
+    isMissingSchemaError(error) ||
+    isConnectionUnavailableError(error)
+  )
 }
 
 export function describePersistenceError(error: unknown) {
@@ -271,6 +275,10 @@ export function describePersistenceError(error: unknown) {
 
   if (isMissingSchemaError(error)) {
     return "ADB is reachable, but the use case schema has not been created yet."
+  }
+
+  if (isConnectionUnavailableError(error)) {
+    return "ADB connection is not available yet."
   }
 
   return "Use case persistence failed."
@@ -337,6 +345,16 @@ function isMissingSchemaError(error: unknown) {
     error !== null &&
     "errorNum" in error &&
     error.errorNum === 942
+  )
+}
+
+function isConnectionUnavailableError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    error.code.startsWith("NJS-")
   )
 }
 
