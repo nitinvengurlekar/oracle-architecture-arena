@@ -7,13 +7,17 @@ import oracledb from "oracledb"
 
 const POOL_ALIAS = "oracle-architecture-arena"
 
+type OracleDriverMode = "thin" | "thick"
+
 type OracleDbConfig = {
+  driverMode: OracleDriverMode
   user: string
   password: string
   connectString: string
   configDir: string
   walletLocation: string
   walletPassword?: string
+  clientLibDir?: string
   poolMin: number
   poolMax: number
   poolIncrement: number
@@ -40,7 +44,8 @@ export type OracleDatabaseHealth = {
   driver: {
     name: "oracledb"
     version: string
-    mode: "thin"
+    mode: OracleDriverMode
+    requestedMode: OracleDriverMode
   }
   connection: {
     connectStringConfigured: boolean
@@ -76,6 +81,7 @@ type HealthQueryRow = {
 }
 
 let poolPromise: Promise<oracledb.Pool> | undefined
+let thickClientInitialized = false
 
 export class OracleDatabaseConfigurationError extends Error {
   constructor(
@@ -118,7 +124,7 @@ export async function checkOracleDatabaseHealth(): Promise<OracleDatabaseHealth>
       status: "not_configured",
       checkedAt,
       configured: false,
-      driver: getDriverHealth(),
+      driver: getDriverHealth(configStatus.config),
       connection: getConnectionHealth(configStatus.config),
       wallet: getWalletHealth(configStatus.config, configStatus.missingWalletFiles),
       pool: getPoolHealth(configStatus.config),
@@ -144,7 +150,7 @@ export async function checkOracleDatabaseHealth(): Promise<OracleDatabaseHealth>
         status: "ok",
         checkedAt,
         configured: true,
-        driver: getDriverHealth(),
+        driver: getDriverHealth(configStatus.config),
         connection: getConnectionHealth(configStatus.config),
         wallet: getWalletHealth(configStatus.config, []),
         pool: getPoolHealth(configStatus.config),
@@ -162,7 +168,7 @@ export async function checkOracleDatabaseHealth(): Promise<OracleDatabaseHealth>
       status: "error",
       checkedAt,
       configured: true,
-      driver: getDriverHealth(),
+      driver: getDriverHealth(configStatus.config),
       connection: getConnectionHealth(configStatus.config),
       wallet: getWalletHealth(configStatus.config, []),
       pool: getPoolHealth(configStatus.config),
@@ -174,23 +180,10 @@ export async function checkOracleDatabaseHealth(): Promise<OracleDatabaseHealth>
 async function getOraclePool(config: OracleDbConfig) {
   if (!poolPromise) {
     oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT
+    initializeOracleClient(config)
 
     poolPromise = oracledb
-      .createPool({
-        user: config.user,
-        password: config.password,
-        connectString: config.connectString,
-        configDir: config.configDir,
-        walletLocation: config.walletLocation,
-        walletPassword: config.walletPassword,
-        poolAlias: POOL_ALIAS,
-        poolMin: config.poolMin,
-        poolMax: config.poolMax,
-        poolIncrement: config.poolIncrement,
-        queueTimeout: 5000,
-        connectTimeout: 5,
-        transportConnectTimeout: 5,
-      })
+      .createPool(getPoolOptions(config))
       .catch((error) => {
         poolPromise = undefined
         throw error
@@ -200,13 +193,59 @@ async function getOraclePool(config: OracleDbConfig) {
   return poolPromise
 }
 
+function initializeOracleClient(config: OracleDbConfig) {
+  if (config.driverMode !== "thick" || thickClientInitialized) {
+    return
+  }
+
+  const clientOptions: oracledb.InitialiseOptions = {
+    configDir: config.configDir,
+    driverName: "Oracle Architecture Arena : Next.js",
+  }
+
+  if (config.clientLibDir) {
+    clientOptions.libDir = config.clientLibDir
+  }
+
+  oracledb.initOracleClient(clientOptions)
+  thickClientInitialized = true
+}
+
+function getPoolOptions(config: OracleDbConfig): oracledb.PoolAttributes {
+  const sharedOptions: oracledb.PoolAttributes = {
+        user: config.user,
+        password: config.password,
+        connectString: config.connectString,
+        poolAlias: POOL_ALIAS,
+        poolMin: config.poolMin,
+        poolMax: config.poolMax,
+        poolIncrement: config.poolIncrement,
+        queueTimeout: 5000,
+  }
+
+  if (config.driverMode === "thick") {
+    return sharedOptions
+  }
+
+  return {
+    ...sharedOptions,
+    configDir: config.configDir,
+    walletLocation: config.walletLocation,
+    walletPassword: config.walletPassword,
+    connectTimeout: 5,
+    transportConnectTimeout: 5,
+  }
+}
+
 function readOracleDbConfig(): OracleDbConfigStatus {
+  const driverMode = readDriverMode(readEnv("ORACLE_DB_DRIVER_MODE"))
   const user = readEnv("ORACLE_DB_USER")
   const password = readEnv("ORACLE_DB_PASSWORD")
   const connectString = readEnv("ORACLE_DB_CONNECT_STRING")
   const walletLocation = readEnv("ORACLE_DB_WALLET_LOCATION")
   const configDir = readEnv("ORACLE_DB_CONFIG_DIR") || walletLocation
   const walletPassword = readEnv("ORACLE_DB_WALLET_PASSWORD")
+  const clientLibDir = readEnv("ORACLE_CLIENT_LIB_DIR")
   const requiredEnvironment: Array<[string, string | undefined]> = [
     ["ORACLE_DB_USER", user],
     ["ORACLE_DB_PASSWORD", password],
@@ -218,12 +257,14 @@ function readOracleDbConfig(): OracleDbConfigStatus {
   )
 
   const config: Partial<OracleDbConfig> = {
+    driverMode,
     user,
     password,
     connectString,
     configDir,
     walletLocation,
     walletPassword,
+    clientLibDir,
     poolMin: readNumberEnv("ORACLE_DB_POOL_MIN", 1),
     poolMax: readNumberEnv("ORACLE_DB_POOL_MAX", 4),
     poolIncrement: readNumberEnv("ORACLE_DB_POOL_INCREMENT", 1),
@@ -254,7 +295,18 @@ function getMissingWalletFiles(config?: Partial<OracleDbConfig>) {
     missingFiles.push("tnsnames.ora")
   }
 
-  if (
+  if (config?.driverMode === "thick") {
+    if (config.configDir && !fs.existsSync(path.join(config.configDir, "sqlnet.ora"))) {
+      missingFiles.push("sqlnet.ora")
+    }
+
+    if (
+      config.walletLocation &&
+      !fs.existsSync(path.join(config.walletLocation, "cwallet.sso"))
+    ) {
+      missingFiles.push("cwallet.sso")
+    }
+  } else if (
     config?.walletLocation &&
     !fs.existsSync(path.join(config.walletLocation, "ewallet.pem"))
   ) {
@@ -264,11 +316,12 @@ function getMissingWalletFiles(config?: Partial<OracleDbConfig>) {
   return missingFiles
 }
 
-function getDriverHealth() {
+function getDriverHealth(config?: Partial<OracleDbConfig>) {
   return {
     name: "oracledb" as const,
     version: oracledb.versionString,
-    mode: "thin" as const,
+    mode: oracledb.thin ? ("thin" as const) : ("thick" as const),
+    requestedMode: config?.driverMode ?? "thin",
   }
 }
 
@@ -286,7 +339,10 @@ function getWalletHealth(
   return {
     configDirConfigured: Boolean(config?.configDir),
     walletLocationConfigured: Boolean(config?.walletLocation),
-    requiredFiles: ["tnsnames.ora", "ewallet.pem"],
+    requiredFiles:
+      config?.driverMode === "thick"
+        ? ["tnsnames.ora", "sqlnet.ora", "cwallet.sso"]
+        : ["tnsnames.ora", "ewallet.pem"],
     missingFiles,
   }
 }
@@ -329,6 +385,10 @@ function readNumberEnv(name: string, fallback: number) {
     : fallback
 }
 
+function readDriverMode(value: string | undefined): OracleDriverMode {
+  return value?.toLowerCase() === "thick" ? "thick" : "thin"
+}
+
 function normalizeOracleError(error: unknown, config: OracleDbConfig) {
   const code =
     typeof error === "object" &&
@@ -358,6 +418,7 @@ function redactConfigValues(value: string, config: OracleDbConfig) {
     config.connectString,
     config.configDir,
     config.walletLocation,
+    config.clientLibDir,
   ]
 
   return sensitiveValues.reduce<string>((nextValue, sensitiveValue) => {
