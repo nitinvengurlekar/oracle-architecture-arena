@@ -200,7 +200,7 @@ function initializeOracleClient(config: OracleDbConfig) {
 
   const clientOptions: oracledb.InitialiseOptions = {
     configDir: config.configDir,
-    driverName: "Oracle Architecture Arena : Next.js",
+    driverName: "OAA Next.js",
   }
 
   if (config.clientLibDir) {
