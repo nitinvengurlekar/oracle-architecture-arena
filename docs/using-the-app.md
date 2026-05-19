@@ -12,6 +12,7 @@ Oracle Architecture Arena is an AI-powered architecture decision workbench for e
   - Neutral CTO Judge
 - Produces architecture recommendations and scoring based on the selected scenario.
 - Generates editable architecture blueprints from saved scenarios and Debate Arena recommendations.
+- Saves Whiteboard Studio sketch sessions and architecture notes so teams can reload prior visual work.
 - Stores scenarios and generated outputs in Oracle Autonomous Database so users can return to prior work.
 - Prepares the platform for future Oracle AI Database 26ai capabilities such as RAG, vector search, database agents, and natural-language querying.
 
@@ -23,6 +24,7 @@ Oracle Architecture Arena is an AI-powered architecture decision workbench for e
 - Generate a field assist to create discovery guidance and battle-card style output.
 - Open Debate Arena, select the same scenario, and generate a debate review.
 - Open Architecture Generator, select the scenario, and generate an architecture blueprint.
+- Open Whiteboard Studio to sketch, capture architecture notes, save the session, and reload it later.
 - Revisit Scenarios later to find saved use cases and generated outputs.
 
 ## Current Deployment

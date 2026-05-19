@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import type { Editor } from "tldraw"
 import { createShapeId, Tldraw, toRichText } from "tldraw"
 import type { LucideIcon } from "lucide-react"
@@ -8,7 +8,10 @@ import {
   BrainCircuit,
   CheckCircle2,
   FileText,
+  History,
   Layers3,
+  Loader2,
+  Save,
   Send,
   ShieldCheck,
   Sparkles,
@@ -20,9 +23,20 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { getToneClasses } from "@/lib/tone"
 import { cn } from "@/lib/utils"
+import type {
+  WhiteboardSessionDetail,
+  WhiteboardSessionSummary,
+} from "@/lib/whiteboard-session-contract"
 import type {
   WhiteboardAiHook,
   WhiteboardNote,
@@ -35,6 +49,18 @@ type DraftNote = {
   category: WhiteboardNoteCategory
   title: string
   body: string
+}
+
+type WhiteboardSessionListResponse = {
+  items: WhiteboardSessionSummary[]
+  source: "database" | "seeded-fallback"
+  warning?: string
+}
+
+type WhiteboardSessionDetailResponse = {
+  item: WhiteboardSessionDetail
+  source: "database" | "seeded-fallback"
+  warning?: string
 }
 
 const categoryTone = {
@@ -72,6 +98,55 @@ export function WhiteboardStudioWorkspace({
   const [draftNote, setDraftNote] = useState<DraftNote>(initialDraftNote)
   const [exportStatus, setExportStatus] = useState("No export created")
   const [aiStatus, setAiStatus] = useState(aiHook.status)
+  const [sessionTitle, setSessionTitle] = useState("Architecture sketch session")
+  const [currentSessionId, setCurrentSessionId] = useState<string>()
+  const [selectedSessionId, setSelectedSessionId] = useState<string>()
+  const [sessions, setSessions] = useState<WhiteboardSessionSummary[]>([])
+  const [persistenceStatus, setPersistenceStatus] = useState(
+    "Not saved to the database yet"
+  )
+  const [isSavingSession, setIsSavingSession] = useState(false)
+  const [isLoadingSession, setIsLoadingSession] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadSessions() {
+      try {
+        const response = await fetch("/api/whiteboard-sessions", {
+          cache: "no-store",
+        })
+
+        if (!response.ok) {
+          throw new Error("Unable to load saved whiteboard sessions.")
+        }
+
+        const payload = (await response.json()) as WhiteboardSessionListResponse
+
+        if (cancelled) {
+          return
+        }
+
+        setSessions(payload.items)
+
+        if (payload.warning) {
+          setPersistenceStatus(payload.warning)
+        } else if (payload.items.length > 0) {
+          setPersistenceStatus(`${payload.items.length} saved sessions available`)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setPersistenceStatus(getErrorMessage(error))
+        }
+      }
+    }
+
+    void loadSessions()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const aiPayloadSummary = useMemo(
     () => [
@@ -91,6 +166,90 @@ export function WhiteboardStudioWorkspace({
       () => setShapeCount(mountedEditor.getCurrentPageShapeIds().size),
       { scope: "document" }
     )
+  }
+
+  async function saveSession() {
+    if (!sessionTitle.trim()) {
+      setPersistenceStatus("Give the whiteboard session a title before saving")
+      return
+    }
+
+    setIsSavingSession(true)
+    setPersistenceStatus("Saving whiteboard session")
+
+    try {
+      const response = await fetch("/api/whiteboard-sessions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          existingId: currentSessionId,
+          title: sessionTitle.trim(),
+          snapshot: editor?.getSnapshot() ?? null,
+          notes,
+        }),
+      })
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null
+
+        throw new Error(payload?.error ?? "Unable to save whiteboard session.")
+      }
+
+      const payload = (await response.json()) as WhiteboardSessionDetailResponse
+      const savedSummary = toSessionSummary(payload.item)
+
+      setCurrentSessionId(payload.item.id)
+      setSelectedSessionId(payload.item.id)
+      setSessions((current) => mergeSessionSummary(current, savedSummary))
+      setPersistenceStatus(`Saved "${payload.item.title}" to the database`)
+    } catch (error) {
+      setPersistenceStatus(getErrorMessage(error))
+    } finally {
+      setIsSavingSession(false)
+    }
+  }
+
+  async function loadSession(id: string) {
+    setSelectedSessionId(id)
+    setIsLoadingSession(true)
+    setPersistenceStatus("Loading saved whiteboard session")
+
+    try {
+      const response = await fetch(`/api/whiteboard-sessions/${id}`, {
+        cache: "no-store",
+      })
+
+      if (!response.ok) {
+        throw new Error("Unable to load saved whiteboard session.")
+      }
+
+      const payload = (await response.json()) as WhiteboardSessionDetailResponse
+
+      setCurrentSessionId(payload.item.id)
+      setSessionTitle(payload.item.title)
+      setNotes(payload.item.notes)
+
+      if (payload.item.snapshot && editor) {
+        editor.loadSnapshot(
+          payload.item.snapshot as Parameters<Editor["loadSnapshot"]>[0]
+        )
+        setShapeCount(editor.getCurrentPageShapeIds().size)
+      }
+
+      setPersistenceStatus(
+        `Loaded "${payload.item.title}" from ${formatSessionTime(
+          payload.item.updatedAt
+        )}`
+      )
+    } catch (error) {
+      setPersistenceStatus(getErrorMessage(error))
+    } finally {
+      setIsLoadingSession(false)
+    }
   }
 
   function updateDraft<K extends keyof DraftNote>(
@@ -182,6 +341,10 @@ export function WhiteboardStudioWorkspace({
       exportVersion: 1,
       exportedAt: new Date().toISOString(),
       source: "Oracle Architecture Arena Whiteboard Studio",
+      session: {
+        id: currentSessionId ?? null,
+        title: sessionTitle,
+      },
       canvas: {
         shapeCount,
         snapshot: canvasSnapshot,
@@ -228,7 +391,7 @@ export function WhiteboardStudioWorkspace({
                 </Badge>
               </div>
               <h3 className="mt-3 text-xl font-semibold text-white">
-                Architecture sketch session
+                {sessionTitle}
               </h3>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-300">
                 Capture solution sketches, structured field notes, and a
@@ -256,6 +419,60 @@ export function WhiteboardStudioWorkspace({
           </CardContent>
         </Card>
 
+        <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
+          <CardContent className="grid gap-4 py-4 xl:grid-cols-[1fr_280px_auto] xl:items-end">
+            <label className="block">
+              <span className="text-sm font-semibold text-slate-950">
+                Whiteboard session name
+              </span>
+              <Input
+                value={sessionTitle}
+                onChange={(event) => setSessionTitle(event.target.value)}
+                className="mt-2 rounded-md bg-slate-50"
+                placeholder="Name this architecture sketch"
+              />
+            </label>
+            <div>
+              <div className="text-sm font-semibold text-slate-950">
+                Saved sessions
+              </div>
+              <Select
+                value={selectedSessionId}
+                onValueChange={loadSession}
+                disabled={sessions.length === 0 || isLoadingSession}
+              >
+                <SelectTrigger className="mt-2 h-10 w-full rounded-md bg-slate-50">
+                  <SelectValue placeholder="Load previous session" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sessions.map((session) => (
+                    <SelectItem key={session.id} value={session.id}>
+                      {session.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row xl:flex-col">
+              <Button
+                onClick={saveSession}
+                disabled={isSavingSession || !sessionTitle.trim()}
+              >
+                {isSavingSession ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Save className="size-4" />
+                )}
+                Save session
+              </Button>
+              <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                <History className="size-4 shrink-0" />
+                <span className="line-clamp-2">{persistenceStatus}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="overflow-hidden rounded-md border-0 bg-white shadow-sm ring-slate-200">
           <CardHeader className="rounded-t-md border-b border-slate-200">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -268,7 +485,7 @@ export function WhiteboardStudioWorkspace({
                 </CardTitle>
               </div>
               <Badge variant="outline" className="rounded-md bg-white">
-                Persistent tldraw workspace
+                Database-backed workspace
               </Badge>
             </div>
           </CardHeader>
@@ -611,4 +828,40 @@ function downloadBlob(content: BlobPart, filename: string, type: string) {
   anchor.click()
   anchor.remove()
   URL.revokeObjectURL(url)
+}
+
+function toSessionSummary(
+  session: WhiteboardSessionDetail
+): WhiteboardSessionSummary {
+  return {
+    id: session.id,
+    title: session.title,
+    useCaseId: session.useCaseId,
+    noteCount: session.noteCount,
+    shapeCount: session.shapeCount,
+    status: session.status,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+  }
+}
+
+function mergeSessionSummary(
+  sessions: WhiteboardSessionSummary[],
+  nextSession: WhiteboardSessionSummary
+) {
+  return [
+    nextSession,
+    ...sessions.filter((session) => session.id !== nextSession.id),
+  ]
+}
+
+function formatSessionTime(value: string) {
+  return new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value))
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Whiteboard action failed."
 }
