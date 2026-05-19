@@ -491,8 +491,16 @@ function GeneratorCommandBar({
         </div>
         <div className="rounded-md border border-white/10 bg-white/5 p-3">
           <div className="space-y-3">
-            <div className="text-sm font-semibold text-white">
-              Scenario source
+            <div>
+              <div
+                className="text-sm font-semibold text-white"
+                title="This is the saved scenario used as input for the next generated architecture."
+              >
+                Scenario input for next generation
+              </div>
+              <p className="mt-1 text-xs leading-5 text-slate-300">
+                Pick a scenario, then generate a new saved blueprint from it.
+              </p>
             </div>
             <Select
               value={selectedUseCaseId}
@@ -523,8 +531,16 @@ function GeneratorCommandBar({
               {isGeneratingBlueprint ? "Generating blueprint" : "Generate from scenario"}
             </Button>
 
-            <div className="text-sm font-semibold text-white">
-              Generated architecture history
+            <div className="border-t border-white/10 pt-3">
+              <div
+                className="text-sm font-semibold text-white"
+                title="This switches the diagram to a previously generated architecture output."
+              >
+                Saved generated architectures
+              </div>
+              <p className="mt-1 text-xs leading-5 text-slate-300">
+                Select a saved output to reload its diagram and recommendation.
+              </p>
             </div>
             <Select
               value={selectedArchitectureId}

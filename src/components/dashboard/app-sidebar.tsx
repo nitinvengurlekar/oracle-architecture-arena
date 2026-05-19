@@ -31,7 +31,12 @@ export function AppSidebar() {
   return (
     <aside className="hidden min-h-screen w-72 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
       <div className="border-b border-slate-200 px-5 py-5">
-        <Link href="/" className="flex items-center gap-3">
+        <Link
+          href="/"
+          className="flex items-center gap-3"
+          title="Executive Architecture Decision Simulation"
+          aria-label="Oracle Architecture Arena: Executive Architecture Decision Simulation"
+        >
           <div className="flex size-10 items-center justify-center rounded-md bg-red-600 text-white shadow-sm">
             <DatabaseZap className="size-5" />
           </div>
