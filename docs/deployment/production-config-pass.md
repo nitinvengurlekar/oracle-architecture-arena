@@ -49,6 +49,16 @@ After `npm run build`, the VM deployment path should include:
 - `.next/standalone/server.js`
 - `.next/static`
 - any `public` assets if/when added
+- the native `oracledb` Thick-mode binary inside `.next/standalone/node_modules/oracledb/build/Release`
+
+For Oracle Thick mode, copy the native `oracledb` binary into the standalone bundle after every VM build:
+
+```bash
+mkdir -p .next/standalone/node_modules/oracledb/build
+cp -R node_modules/oracledb/build/Release .next/standalone/node_modules/oracledb/build/
+```
+
+If this step is missed, `/api/health/database` will show `requestedMode: "thick"` but the runtime driver can remain in Thin mode and return `NJS-045`.
 
 For a VM process manager, the likely start command is:
 

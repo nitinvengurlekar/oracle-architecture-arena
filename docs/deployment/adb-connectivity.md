@@ -31,6 +31,14 @@ For node-oracledb Thin mode with ADB mTLS, the app expects:
 
 These are often the same unzipped wallet directory.
 
+For the OCI VM deployment, use node-oracledb Thick mode with Oracle Instant Client and the wallet `cwallet.sso`. The app expects:
+
+- `ORACLE_DB_DRIVER_MODE=thick`
+- `ORACLE_CLIENT_LIB_DIR=/usr/lib/oracle/23/client64/lib`
+- `tnsnames.ora`, `sqlnet.ora`, and `cwallet.sso` in the wallet/config directory
+
+When using Next.js standalone output, copy `node_modules/oracledb/build/Release` into `.next/standalone/node_modules/oracledb/build/Release` after each build so the Thick-mode native binary is available at runtime.
+
 ## Runtime Environment Variables
 
 Set these on the VM or in local `.env.local`:
@@ -42,6 +50,8 @@ ORACLE_DB_CONNECT_STRING=
 ORACLE_DB_WALLET_LOCATION=
 ORACLE_DB_WALLET_PASSWORD=
 ORACLE_DB_CONFIG_DIR=
+ORACLE_DB_DRIVER_MODE=
+ORACLE_CLIENT_LIB_DIR=
 ORACLE_DB_POOL_MIN=1
 ORACLE_DB_POOL_MAX=4
 ORACLE_DB_POOL_INCREMENT=1
