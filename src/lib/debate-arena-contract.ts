@@ -3,6 +3,7 @@ import { z } from "zod"
 import { competitiveAssistBriefSchema } from "@/lib/competitive-assist-contract"
 
 export const debateArenaInputSchema = z.object({
+  useCaseId: z.string().trim().min(1).optional(),
   scenario: z.string().trim().min(1),
   customerContext: z.string().trim().min(1),
   competitor: z.enum([

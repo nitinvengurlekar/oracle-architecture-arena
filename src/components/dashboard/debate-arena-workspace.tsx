@@ -65,7 +65,13 @@ export function DebateArenaWorkspace({
   const [generationMeta, setGenerationMeta] = useState<
     Pick<
       DebateArenaGenerationResult,
-      "mode" | "model" | "reasoningEffort" | "ragContext" | "warning"
+      | "mode"
+      | "model"
+      | "reasoningEffort"
+      | "ragContext"
+      | "warning"
+      | "runId"
+      | "source"
     >
   >({
     mode: "mock",
@@ -166,6 +172,8 @@ export function DebateArenaWorkspace({
         reasoningEffort: result.reasoningEffort,
         ragContext: result.ragContext,
         warning: result.warning,
+        runId: result.runId,
+        source: result.source,
       })
     } catch {
       setGenerationMeta((current) => ({
@@ -235,7 +243,13 @@ function DebateControls({
   selectedCompetitor: CompetitiveCompetitor
   generationMeta: Pick<
     DebateArenaGenerationResult,
-    "mode" | "model" | "reasoningEffort" | "ragContext" | "warning"
+    | "mode"
+    | "model"
+    | "reasoningEffort"
+    | "ragContext"
+    | "warning"
+    | "runId"
+    | "source"
   >
   isGenerating: boolean
   onSelectUseCase: (value: string) => void
@@ -317,6 +331,11 @@ function DebateControls({
         {generationMeta.warning ? (
           <p className="text-sm leading-6 text-slate-600 xl:col-span-3">
             {generationMeta.warning}
+          </p>
+        ) : null}
+        {generationMeta.source === "database" && generationMeta.runId ? (
+          <p className="text-sm leading-6 text-emerald-700 xl:col-span-3">
+            Saved Debate Arena run to the database for reuse in Architecture Generator.
           </p>
         ) : null}
       </CardContent>
@@ -832,6 +851,7 @@ function createDebateInput({
   }
 
   return {
+    useCaseId: selectedUseCase.id,
     scenario: selectedUseCase.title,
     customerContext: selectedUseCase.input.prompt,
     competitor: selectedCompetitor,

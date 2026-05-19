@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import {
   Bot,
@@ -9,6 +9,7 @@ import {
   FileText,
   Gauge,
   Layers3,
+  Loader2,
   ShieldCheck,
   Sparkles,
   Target,
@@ -44,6 +45,7 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { getToneClasses } from "@/lib/tone"
+import { loadUseCaseCatalog } from "@/lib/use-case-catalog"
 import { cn } from "@/lib/utils"
 import type {
   ArchitectureEdge,
@@ -51,6 +53,7 @@ import type {
   ArchitectureGeneratorNode,
   ArchitectureNodeStatus,
   ArchitectureRecommendation,
+  UseCaseCatalogItem,
   WorkbenchTone,
 } from "@/types/workbench"
 
@@ -62,8 +65,21 @@ type ArchitectureHistoryItem = {
   label: string
   description: string
   generatedAt: string
+  useCaseId?: string
+  debateRunId?: string
   blueprint: ArchitectureGeneratorBlueprint
   recommendation: ArchitectureRecommendation
+}
+
+type ArchitectureBlueprintsApiResponse = {
+  items: ArchitectureHistoryItem[]
+  source: "database" | "seeded-fallback"
+  warning?: string
+}
+
+type ArchitectureBlueprintSaveResponse = {
+  item: ArchitectureHistoryItem
+  source: "database"
 }
 
 type EditableNodeField =
@@ -140,7 +156,7 @@ export function ArchitectureGeneratorWorkspace({
   recommendation: ArchitectureRecommendation
   history?: ArchitectureHistoryItem[]
 }) {
-  const architectureHistory = useMemo(
+  const fallbackHistory = useMemo(
     () =>
       history?.length
         ? history
@@ -155,6 +171,17 @@ export function ArchitectureGeneratorWorkspace({
             },
           ],
     [blueprint, history, recommendation]
+  )
+  const [catalogItems, setCatalogItems] = useState<UseCaseCatalogItem[]>([])
+  const [selectedUseCaseId, setSelectedUseCaseId] = useState("")
+  const [persistedHistory, setPersistedHistory] = useState<
+    ArchitectureHistoryItem[]
+  >([])
+  const [isGeneratingBlueprint, setIsGeneratingBlueprint] = useState(false)
+  const [persistenceMessage, setPersistenceMessage] = useState<string>()
+  const architectureHistory = useMemo(
+    () => mergeArchitectureHistory(persistedHistory, fallbackHistory),
+    [fallbackHistory, persistedHistory]
   )
   const [selectedArchitectureId, setSelectedArchitectureId] = useState(
     architectureHistory[0]?.id ?? blueprint.id
@@ -198,6 +225,57 @@ export function ArchitectureGeneratorWorkspace({
   )
   const nodeCards = useMemo(() => nodes.map((node) => node.data), [nodes])
 
+  const applyArchitectureSelection = useCallback(
+    (historyItem: ArchitectureHistoryItem) => {
+      const nextNodes = buildFlowNodes(historyItem.blueprint.nodes)
+
+      setSelectedArchitectureId(historyItem.id)
+      setNodes(nextNodes)
+      setEdges(buildFlowEdges(historyItem.blueprint.edges))
+      setSelectedNodeId(nextNodes[0]?.id ?? "")
+      setGenerationVersion(1)
+    },
+    [setEdges, setNodes]
+  )
+
+  useEffect(() => {
+    let isActive = true
+
+    void loadUseCaseCatalog().then((items) => {
+      if (!isActive) {
+        return
+      }
+
+      setCatalogItems(items)
+      setSelectedUseCaseId((current) => current || items[0]?.id || "")
+    })
+
+    void fetch("/api/architecture-blueprints?limit=50")
+      .then((response) => (response.ok ? response.json() : undefined))
+      .then((result: ArchitectureBlueprintsApiResponse | undefined) => {
+        if (!isActive || !result || result.source !== "database") {
+          return
+        }
+
+        setPersistedHistory(result.items)
+
+        if (result.items[0]) {
+          applyArchitectureSelection(result.items[0])
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setPersistenceMessage(
+            "Architecture history is using the local baseline until ADB history is available."
+          )
+        }
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [applyArchitectureSelection])
+
   function updateSelectedNode<K extends EditableNodeField>(
     field: K,
     value: ArchitectureFlowNodeData[K]
@@ -220,6 +298,49 @@ export function ArchitectureGeneratorWorkspace({
     setGenerationVersion((version) => version + 1)
   }
 
+  async function generateFromSelectedUseCase() {
+    if (!selectedUseCaseId) {
+      setPersistenceMessage("Select a saved scenario before generating an architecture.")
+      return
+    }
+
+    setIsGeneratingBlueprint(true)
+    setPersistenceMessage(undefined)
+
+    try {
+      const response = await fetch("/api/architecture-blueprints", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ useCaseId: selectedUseCaseId }),
+      })
+      const result = (await response.json()) as
+        | ArchitectureBlueprintSaveResponse
+        | { error?: string }
+
+      if (!response.ok || !("item" in result)) {
+        throw new Error(
+          "error" in result && result.error
+            ? result.error
+            : "Unable to generate architecture blueprint."
+        )
+      }
+
+      setPersistedHistory((current) =>
+        mergeArchitectureHistory([result.item], current)
+      )
+      applyArchitectureSelection(result.item)
+      setPersistenceMessage("Generated and saved architecture blueprint to ADB.")
+    } catch {
+      setPersistenceMessage(
+        "Architecture blueprint generation did not complete. The current draft remains visible."
+      )
+    } finally {
+      setIsGeneratingBlueprint(false)
+    }
+  }
+
   return (
     <div className="grid gap-4 2xl:grid-cols-[1fr_430px]">
       <div className="flex flex-col gap-4">
@@ -232,14 +353,14 @@ export function ArchitectureGeneratorWorkspace({
             const nextHistoryItem =
               architectureHistory.find((item) => item.id === architectureId) ??
               architectureHistory[0]
-            const nextNodes = buildFlowNodes(nextHistoryItem.blueprint.nodes)
-
-            setSelectedArchitectureId(architectureId)
-            setNodes(nextNodes)
-            setEdges(buildFlowEdges(nextHistoryItem.blueprint.edges))
-            setSelectedNodeId(nextNodes[0]?.id ?? "")
-            setGenerationVersion(1)
+            applyArchitectureSelection(nextHistoryItem)
           }}
+          catalogItems={catalogItems}
+          selectedUseCaseId={selectedUseCaseId}
+          isGeneratingBlueprint={isGeneratingBlueprint}
+          persistenceMessage={persistenceMessage}
+          onSelectUseCase={setSelectedUseCaseId}
+          onGenerateFromUseCase={generateFromSelectedUseCase}
           onRegenerate={regenerateFromDebate}
         />
 
@@ -320,15 +441,27 @@ function GeneratorCommandBar({
   blueprint,
   history,
   selectedArchitectureId,
+  catalogItems,
+  selectedUseCaseId,
   generationVersion,
+  isGeneratingBlueprint,
+  persistenceMessage,
   onSelectArchitecture,
+  onSelectUseCase,
+  onGenerateFromUseCase,
   onRegenerate,
 }: {
   blueprint: ArchitectureGeneratorBlueprint
   history: ArchitectureHistoryItem[]
   selectedArchitectureId: string
+  catalogItems: UseCaseCatalogItem[]
+  selectedUseCaseId: string
   generationVersion: number
+  isGeneratingBlueprint: boolean
+  persistenceMessage?: string
   onSelectArchitecture: (architectureId: string) => void
+  onSelectUseCase: (useCaseId: string) => void
+  onGenerateFromUseCase: () => void
   onRegenerate: () => void
 }) {
   const selectedHistoryItem =
@@ -336,7 +469,7 @@ function GeneratorCommandBar({
 
   return (
     <Card className="rounded-md border-0 bg-slate-950 text-white shadow-sm ring-slate-900">
-      <CardContent className="grid gap-5 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,400px)] xl:items-start">
+      <CardContent className="grid gap-5 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,430px)] xl:items-start">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
             <Badge className="rounded-md bg-red-600 text-white">
@@ -359,6 +492,38 @@ function GeneratorCommandBar({
         <div className="rounded-md border border-white/10 bg-white/5 p-3">
           <div className="space-y-3">
             <div className="text-sm font-semibold text-white">
+              Scenario source
+            </div>
+            <Select
+              value={selectedUseCaseId}
+              onValueChange={onSelectUseCase}
+              disabled={catalogItems.length === 0}
+            >
+              <SelectTrigger className="min-h-11 w-full max-w-full rounded-md border-white/20 bg-white text-slate-950">
+                <SelectValue placeholder="Select saved scenario" />
+              </SelectTrigger>
+              <SelectContent className="max-w-[min(30rem,calc(100vw-2rem))]">
+                {catalogItems.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              className="w-full bg-red-600 text-white hover:bg-red-700"
+              onClick={onGenerateFromUseCase}
+              disabled={isGeneratingBlueprint || catalogItems.length === 0}
+            >
+              {isGeneratingBlueprint ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <WandSparkles className="size-4" />
+              )}
+              {isGeneratingBlueprint ? "Generating blueprint" : "Generate from scenario"}
+            </Button>
+
+            <div className="text-sm font-semibold text-white">
               Generated architecture history
             </div>
             <Select
@@ -380,6 +545,11 @@ function GeneratorCommandBar({
               {selectedHistoryItem.generatedAt} ·{" "}
               {selectedHistoryItem.description ?? blueprint.generatedFrom}
             </p>
+            {persistenceMessage ? (
+              <p className="rounded-md border border-white/10 bg-white/5 p-2 text-xs leading-5 text-slate-200">
+                {persistenceMessage}
+              </p>
+            ) : null}
             <Button
               variant="outline"
               className="w-full border-white/20 bg-white text-slate-950 hover:bg-slate-100"
@@ -930,4 +1100,23 @@ function buildFlowEdges(architectureEdges: ArchitectureEdge[]): Edge[] {
       fontWeight: 600,
     },
   }))
+}
+
+function mergeArchitectureHistory(
+  primaryItems: ArchitectureHistoryItem[],
+  secondaryItems: ArchitectureHistoryItem[]
+) {
+  const seenIds = new Set<string>()
+  const items: ArchitectureHistoryItem[] = []
+
+  for (const item of [...primaryItems, ...secondaryItems]) {
+    if (seenIds.has(item.id)) {
+      continue
+    }
+
+    seenIds.add(item.id)
+    items.push(item)
+  }
+
+  return items
 }

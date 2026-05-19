@@ -219,6 +219,7 @@ export interface ArchitectureDebate {
 }
 
 export interface DebateArenaGenerationInput {
+  useCaseId?: string
   scenario: string
   customerContext: string
   competitor: CompetitiveCompetitor
@@ -228,6 +229,8 @@ export interface DebateArenaGenerationInput {
 }
 
 export interface DebateArenaGenerationResult {
+  runId?: string
+  source?: "database"
   debate: ArchitectureDebate
   mode: AssistGenerationMode
   model?: string

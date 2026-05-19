@@ -1,0 +1,32 @@
+[
+  {
+    "id": "sample-state-revenue-snowflake-v1",
+    "label": "State Revenue Agency Snowflake Modernization Scenario",
+    "input": {
+      "prompt": "State Revenue Agency Snowflake Modernization Scenario. A state revenue department is evaluating Snowflake as the enterprise analytics platform for tax compliance, collections forecasting, and conversational reporting for regional auditors. The agency already runs Oracle 19c and Exadata for taxpayer accounts, payment processing, fraud case management, and revenue reconciliation. Leaders want AI-based search over policy, taxpayer correspondence metadata, and audit history, but they need strong controls around sensitive taxpayer data, lineage, retention, and near-real-time operational reporting.",
+      "competitor": "Snowflake",
+      "domain": "database-modernization",
+      "discoveryConfidence": "Directional"
+    }
+  },
+  {
+    "id": "sample-public-safety-azure-sovereign-v1",
+    "label": "Public Safety Azure Sovereign Deployment Scenario",
+    "input": {
+      "prompt": "Public Safety Azure Sovereign Deployment Scenario. A public safety consortium is evaluating Azure Government, Microsoft Fabric, and Copilot-style analytics for cross-agency incident reporting, emergency response dashboards, and natural language intelligence briefings. Oracle databases on Exadata and RAC support 911 dispatch, records management, courts integration, and evidence workflows. The customer needs sovereign deployment options, CJIS-aligned controls, audit evidence, controlled AI access, and a modernization path that does not disrupt mission-critical Oracle workloads.",
+      "competitor": "Azure",
+      "domain": "sovereign-deployment",
+      "discoveryConfidence": "Sparse"
+    }
+  },
+  {
+    "id": "sample-health-benefits-google-ai-v1",
+    "label": "Health Benefits Google Cloud AI Platform Scenario",
+    "input": {
+      "prompt": "Health Benefits Google Cloud AI Platform Scenario. A health and human services agency is exploring Google Cloud BigQuery and Vertex AI for Medicaid analytics, fraud detection, eligibility insights, and AI-assisted policy research. Oracle 19c on Exadata remains the system of record for eligibility, provider enrollment, claims financials, and case administration. Business teams want natural language analytics and predictive models, while security leaders need PHI controls, model governance, explainability, and a practical path to integrate Oracle operational data without creating duplicate truth.",
+      "competitor": "Google Cloud",
+      "domain": "ai-ml-platform",
+      "discoveryConfidence": "Directional"
+    }
+  }
+]
