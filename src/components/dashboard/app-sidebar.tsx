@@ -27,6 +27,12 @@ const navigationIcons = {
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const primaryNavigation = dashboardNavigation.filter(
+    (item) => item.title !== "Dashboard"
+  )
+  const overviewNavigation = dashboardNavigation.filter(
+    (item) => item.title === "Dashboard"
+  )
 
   return (
     <aside className="hidden min-h-screen w-72 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
@@ -52,41 +58,23 @@ export function AppSidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {dashboardNavigation.map((item) => {
-          const Icon = navigationIcons[item.title as keyof typeof navigationIcons]
-          const isActive = item.href === pathname
+        {primaryNavigation.map((item) => (
+          <SidebarNavigationItem
+            key={item.href}
+            item={item}
+            isActive={item.href === pathname}
+          />
+        ))}
 
-          return (
-            <Link
+        <div className="my-3 border-t border-slate-200 pt-3">
+          {overviewNavigation.map((item) => (
+            <SidebarNavigationItem
               key={item.href}
-              href={item.href}
-              className={cn(
-                "group flex items-start gap-3 rounded-md px-3 py-3 text-sm transition-colors",
-                isActive
-                  ? "bg-slate-950 text-white shadow-sm"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-              )}
-            >
-              <Icon
-                className={cn(
-                  "mt-0.5 size-4 shrink-0",
-                  isActive ? "text-white" : "text-slate-500 group-hover:text-red-600"
-                )}
-              />
-              <span>
-                <span className="block font-medium">{item.title}</span>
-                <span
-                  className={cn(
-                    "mt-0.5 block text-xs leading-5",
-                    isActive ? "text-slate-300" : "text-slate-500"
-                  )}
-                >
-                  {item.description}
-                </span>
-              </span>
-            </Link>
-          )
-        })}
+              item={item}
+              isActive={item.href === pathname}
+            />
+          ))}
+        </div>
       </nav>
 
       <div className="m-3 rounded-md border border-slate-200 bg-slate-50 p-4">
@@ -100,5 +88,46 @@ export function AppSidebar() {
         </p>
       </div>
     </aside>
+  )
+}
+
+function SidebarNavigationItem({
+  item,
+  isActive,
+}: {
+  item: (typeof dashboardNavigation)[number]
+  isActive: boolean
+}) {
+  const Icon = navigationIcons[item.title as keyof typeof navigationIcons]
+
+  return (
+    <Link
+      key={item.href}
+      href={item.href}
+      className={cn(
+        "group flex items-start gap-3 rounded-md px-3 py-3 text-sm transition-colors",
+        isActive
+          ? "bg-slate-950 text-white shadow-sm"
+          : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+      )}
+    >
+      <Icon
+        className={cn(
+          "mt-0.5 size-4 shrink-0",
+          isActive ? "text-white" : "text-slate-500 group-hover:text-red-600"
+        )}
+      />
+      <span>
+        <span className="block font-medium">{item.title}</span>
+        <span
+          className={cn(
+            "mt-0.5 block text-xs leading-5",
+            isActive ? "text-slate-300" : "text-slate-500"
+          )}
+        >
+          {item.description}
+        </span>
+      </span>
+    </Link>
   )
 }
