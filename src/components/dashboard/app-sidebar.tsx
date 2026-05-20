@@ -8,6 +8,7 @@ import {
   BrainCircuit,
   ClipboardList,
   DatabaseZap,
+  Info,
   LayoutDashboard,
   PenTool,
   Swords,
@@ -17,6 +18,7 @@ import { dashboardNavigation } from "@/lib/navigation"
 import { cn } from "@/lib/utils"
 
 const navigationIcons = {
+  About: Info,
   Dashboard: LayoutDashboard,
   Scenarios: ClipboardList,
   "Competitive SE Assist": Swords,

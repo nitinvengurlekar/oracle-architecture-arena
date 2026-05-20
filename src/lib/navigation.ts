@@ -2,6 +2,11 @@ import type { NavigationItem } from "@/types/workbench"
 
 export const dashboardNavigation = [
   {
+    title: "About",
+    href: "/about",
+    description: "What this workbench does",
+  },
+  {
     title: "Competitive SE Assist",
     href: "/competitive-se-assist",
     description: "Battle-card guidance from incomplete signals",
