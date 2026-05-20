@@ -452,7 +452,7 @@ function AgentPanel({ agent }: { agent: DebateAgentPanel }) {
         />
         <PanelBlock
           icon={Bot}
-          title="Generated response"
+          title={getAgentResponseTitle(agent)}
           body={agent.response}
           className="h-full"
         />
@@ -531,6 +531,18 @@ function getAgentPanelName(agent: DebateAgentPanel) {
   }
 
   return "Neutral CTO Judge"
+}
+
+function getAgentResponseTitle(agent: DebateAgentPanel) {
+  if (agent.role === "oracle") {
+    return "Oracle Architect Response"
+  }
+
+  if (agent.role === "competitor") {
+    return "Competitor Architect Response"
+  }
+
+  return "Judge's Evaluation"
 }
 
 function PanelBlock({
