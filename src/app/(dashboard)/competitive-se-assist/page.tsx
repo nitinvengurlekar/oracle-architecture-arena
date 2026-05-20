@@ -7,8 +7,8 @@ export default function CompetitiveSeAssistPage() {
     <AnimatedPage>
       <PageHeader
         eyebrow="Competitive SE Assist"
-        title="Guidance when customer context is incomplete"
-        description="Use the SE Assistant and Discovery Agent to infer likely priorities, expose gaps, identify Oracle positioning, and translate competitive context into field guidance."
+        title="Build strategy from customer context"
+        description="Use the SE Assistant and Discovery Agent to infer priorities, identify Oracle positioning, and translate competitive context into field guidance."
       />
 
       <CompetitiveAssistWorkspace />
