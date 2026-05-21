@@ -38,6 +38,32 @@ export const dashboardNavigation = [
   },
 ] satisfies NavigationItem[]
 
+export const competitiveAssistWorkflowTabs = [
+  {
+    id: "customer-scenario-analysis",
+    title: "Customer Scenario Analysis",
+    href: "/competitive-se-assist?assistTab=customer-scenario-analysis",
+    description: "Capture scenario and generate field assist",
+  },
+  {
+    id: "competitor-analysis",
+    title: "Competitor Analysis",
+    href: "/competitive-se-assist?assistTab=competitor-analysis",
+    description: "Tune competitor and domain lens",
+  },
+] as const
+
+export type CompetitiveAssistWorkflowTabId =
+  (typeof competitiveAssistWorkflowTabs)[number]["id"]
+
+export function getCompetitiveAssistWorkflowTab(
+  value: string | null | undefined
+): CompetitiveAssistWorkflowTabId {
+  return competitiveAssistWorkflowTabs.some((tab) => tab.id === value)
+    ? (value as CompetitiveAssistWorkflowTabId)
+    : "customer-scenario-analysis"
+}
+
 export function getNavigationTitle(pathname: string) {
   const activeItem =
     dashboardNavigation.find((item) => item.href === pathname) ??

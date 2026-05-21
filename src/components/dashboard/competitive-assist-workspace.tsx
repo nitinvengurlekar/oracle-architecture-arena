@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useMemo, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import {
   BrainCircuit,
@@ -11,6 +12,7 @@ import {
   Layers3,
   Loader2,
   MessageSquareQuote,
+  Search,
   ShieldCheck,
   Sparkles,
   Swords,
@@ -22,6 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -29,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import {
   competitiveCompetitors,
@@ -39,9 +43,14 @@ import {
 } from "@/lib/competitive-assist"
 import { getToneClasses } from "@/lib/tone"
 import {
+  loadUseCaseCatalog,
   loadUseCaseById,
   saveUseCaseWithPersistence,
 } from "@/lib/use-case-catalog"
+import {
+  competitiveAssistWorkflowTabs,
+  getCompetitiveAssistWorkflowTab,
+} from "@/lib/navigation"
 import { cn } from "@/lib/utils"
 import type {
   CompetitiveAssistBrief,
@@ -49,6 +58,7 @@ import type {
   CompetitiveAssistInput,
   CompetitiveCompetitor,
   StrategyDomain,
+  UseCaseCatalogItem,
   WorkbenchTone,
 } from "@/types/workbench"
 
@@ -56,6 +66,8 @@ type GenerationMeta = Pick<
   CompetitiveAssistGenerationResult,
   "mode" | "model" | "ragContext" | "warning"
 >
+
+const noStarterScenarioValue = "none"
 
 const discoveryConfidenceDescriptions = {
   Sparse:
@@ -67,6 +79,12 @@ const discoveryConfidenceDescriptions = {
 } satisfies Record<CompetitiveAssistInput["discoveryConfidence"], string>
 
 export function CompetitiveAssistWorkspace() {
+  const pathname = usePathname()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const activeWorkflowTab = getCompetitiveAssistWorkflowTab(
+    searchParams.get("assistTab")
+  )
   const [activeSignalId, setActiveSignalId] = useState(customerSignalChips[0].id)
   const [input, setInput] = useState<CompetitiveAssistInput>(
     customerSignalChips[0].input
@@ -82,8 +100,20 @@ export function CompetitiveAssistWorkspace() {
   const [currentUseCaseId, setCurrentUseCaseId] = useState<string>()
   const [catalogMessage, setCatalogMessage] = useState<string>()
   const [isGenerating, setIsGenerating] = useState(false)
+  const [catalogItems, setCatalogItems] = useState<UseCaseCatalogItem[]>([])
+  const [catalogSearch, setCatalogSearch] = useState("")
   const selectedStarterScenario = customerSignalChips.find(
     (signal) => signal.id === activeSignalId
+  )
+  const competitorCatalogMatches = useMemo(
+    () =>
+      filterCatalogForCompetitorAnalysis(
+        catalogItems,
+        input.competitor,
+        input.domain,
+        catalogSearch
+      ),
+    [catalogItems, catalogSearch, input.competitor, input.domain]
   )
 
   useEffect(() => {
@@ -146,14 +176,58 @@ export function CompetitiveAssistWorkspace() {
     }
   }, [])
 
+  useEffect(() => {
+    let isActive = true
+
+    void loadUseCaseCatalog().then((items) => {
+      if (isActive) {
+        setCatalogItems(items)
+      }
+    })
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
   function updateInput<K extends keyof CompetitiveAssistInput>(
     key: K,
     value: CompetitiveAssistInput[K]
   ) {
-    setInput((current) => ({ ...current, [key]: value }))
+    setInput((current) => {
+      const nextInput = { ...current, [key]: value }
+
+      setBrief(generateCompetitiveAssistBrief(nextInput))
+      setGenerationMeta({
+        mode: "mock",
+        model: "Local assist preview",
+        ragContext: [],
+      })
+
+      return nextInput
+    })
     setActiveSignalId("custom")
     setCurrentUseCaseId(undefined)
     setCatalogMessage(undefined)
+  }
+
+  function applyStarterScenario(value: string) {
+    if (value === noStarterScenarioValue) {
+      setActiveSignalId("custom")
+      setCurrentUseCaseId(undefined)
+      setCatalogMessage(undefined)
+      return
+    }
+
+    applySignalChip(value)
+  }
+
+  function selectIntakePage(value: string) {
+    const nextPage = getCompetitiveAssistWorkflowTab(value)
+    const nextParams = new URLSearchParams(searchParams.toString())
+
+    nextParams.set("assistTab", nextPage)
+    router.replace(`${pathname}?${nextParams.toString()}`, { scroll: false })
   }
 
   function applySignalChip(signalId: string) {
@@ -268,206 +342,212 @@ export function CompetitiveAssistWorkspace() {
             </span>
           </div>
           <CardTitle className="pt-2 text-xl font-semibold text-slate-950">
-            Competitive intake
+            Build strategy from Customer Context
           </CardTitle>
           <p className="text-sm leading-6 text-slate-600">
-            Use this intake when the customer context is incomplete. Start from
-            what you know, then let the SE Assistant and Discovery Agent infer
-            likely priorities, questions, and Oracle positioning.
+            Use the SE Assistant and Discovery Agent to infer priorities,
+            identify Oracle positioning, and translate competitive context into
+            field guidance.
           </p>
         </CardHeader>
 
         <CardContent className="space-y-5">
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-            <div className="text-sm font-semibold text-slate-950">
-              How an SE uses this
-            </div>
-            <p className="mt-2 text-xs leading-5 text-slate-600">
-              Pick the competitor the customer named, choose a starter scenario
-              if one fits, then refine the customer context and strategy domain
-              before generating guidance.
-            </p>
-          </div>
-
-          <div>
-            <div className="text-sm font-semibold text-slate-950">
-              Competitor selector
-            </div>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Sets the competitive lens for strengths, risks, talk track, and
-              later Debate Arena prompts.
-            </p>
-            <Select
-              value={input.competitor}
-              onValueChange={(value) =>
-                updateInput("competitor", value as CompetitiveCompetitor)
-              }
-            >
-              <SelectTrigger className="mt-2 w-full rounded-md bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {competitiveCompetitors.map((competitor) => (
-                  <SelectItem key={competitor} value={competitor}>
-                    {competitor}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <div className="text-sm font-semibold text-slate-950">
-              Starter scenarios
-            </div>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Select one when the pursuit resembles a common compete motion,
-              then edit the customer context below.
-            </p>
-            <Select
-              value={selectedStarterScenario?.id}
-              onValueChange={applySignalChip}
-            >
-              <SelectTrigger className="mt-2 w-full rounded-md bg-white">
-                <SelectValue placeholder="Select a starter scenario" />
-              </SelectTrigger>
-              <SelectContent>
-                {customerSignalChips.map((signal) => {
-                  return (
-                    <SelectItem key={signal.id} value={signal.id}>
-                      {signal.label}
-                    </SelectItem>
-                  )
-                })}
-              </SelectContent>
-            </Select>
-            {selectedStarterScenario ? (
-              <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
-                {selectedStarterScenario.description}
-              </div>
-            ) : (
-              <p className="mt-2 text-xs leading-5 text-slate-500">
-                Current context is custom or loaded from the saved catalog.
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label
-              htmlFor="customer-signal"
-              className="text-sm font-semibold text-slate-950"
-            >
-              Customer context
-            </label>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Paste the customer’s wording, account notes, or rough compete
-              statement. This becomes the source material for the generated
-              questions, positioning, talk track, and battle card.
-            </p>
-            <Textarea
-              id="customer-signal"
-              value={input.prompt}
-              onChange={(event) => updateInput("prompt", event.target.value)}
-              className="mt-2 min-h-32 resize-none rounded-md bg-slate-50 text-sm"
-            />
-          </div>
-
-          <div className="grid gap-3">
-            <div>
-              <div className="text-sm font-semibold text-slate-950">
-                Strategy domain
-              </div>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                Use this when the same competitor could mean different
-                conversations, such as Snowflake for lakehouse versus Azure for
-                AI platform strategy.
-              </p>
-              <Select
-                value={input.domain}
-                onValueChange={(value) =>
-                  updateInput("domain", value as StrategyDomain)
-                }
-              >
-                <SelectTrigger className="mt-2 w-full rounded-md bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {competitiveDomains.map((domain) => (
-                    <SelectItem key={domain.value} value={domain.value}>
-                      {domain.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <div className="text-sm font-semibold text-slate-950">
-                Discovery confidence
-              </div>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                Tell the model how much is known. Sparse keeps assumptions
-                visible; validated produces firmer field guidance.
-              </p>
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                {discoveryConfidenceLevels.map((level) => {
-                  const description = discoveryConfidenceDescriptions[level]
-
-                  return (
-                    <button
-                      key={level}
-                      type="button"
-                      title={description}
-                      aria-label={`${level}: ${description}`}
-                      onClick={() => updateInput("discoveryConfidence", level)}
-                      className={cn(
-                        "group relative rounded-md border px-3 py-2 text-sm font-medium transition-colors",
-                        input.discoveryConfidence === level
-                          ? "border-red-600 bg-red-600 text-white"
-                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                      )}
-                    >
-                      {level}
-                      <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-64 max-w-[calc(100vw-3rem)] -translate-x-1/2 rounded-md bg-slate-950 p-3 text-left text-xs font-normal leading-5 text-white shadow-lg group-hover:block group-focus-visible:block">
-                        {description}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-
-          <Button
-            className="w-full"
-            onClick={generateAssist}
-            disabled={isGenerating || input.prompt.trim().length === 0}
+          <Tabs
+            value={activeWorkflowTab}
+            onValueChange={selectIntakePage}
+            className="gap-4"
           >
-            {isGenerating ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <WandSparkles className="size-4" />
-            )}
-            {isGenerating ? "Generating with OpenAI" : "Generate field assist"}
-          </Button>
+            <TabsList className="grid !h-auto w-full grid-cols-1 items-stretch rounded-md border border-slate-200 bg-slate-50 p-1 md:hidden">
+              {competitiveAssistWorkflowTabs.map((page) => (
+                <TabsTrigger
+                  key={page.id}
+                  value={page.id}
+                  className="!h-auto min-h-10 whitespace-normal rounded px-2 py-2 text-center text-xs font-semibold leading-4 data-active:bg-slate-950 data-active:text-white"
+                >
+                  {page.title}
+                </TabsTrigger>
+              ))}
+            </TabsList>
 
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-            <div className="text-sm font-semibold text-slate-950">
-              How this drives the output
-            </div>
-            <p className="mt-2 text-xs leading-5 text-slate-600">
-              The selections on the left control the generated panels on the
-              right. Competitor shapes strengths and risks, strategy domain
-              shapes Oracle positioning, and confidence controls how cautious
-              the SE Assistant should be. Each generation is saved to the use
-              case catalog and becomes available in Debate Arena.
-            </p>
-          </div>
+            <TabsContent
+              value="customer-scenario-analysis"
+              className="space-y-5"
+            >
+              <div>
+                <div className="text-sm font-semibold text-slate-950">
+                  Starter scenario
+                </div>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Optional. Select one when the pursuit resembles a common
+                  compete motion, then edit the customer scenario below.
+                </p>
+                <Select
+                  value={selectedStarterScenario?.id ?? noStarterScenarioValue}
+                  onValueChange={applyStarterScenario}
+                >
+                  <SelectTrigger className="mt-2 w-full rounded-md bg-white">
+                    <SelectValue placeholder="Select a starter scenario" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={noStarterScenarioValue}>
+                      N/A / Other
+                    </SelectItem>
+                    {customerSignalChips.map((signal) => {
+                      return (
+                        <SelectItem key={signal.id} value={signal.id}>
+                          {signal.label}
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <CatalogStatusCard
-            message={catalogMessage}
-            currentUseCaseId={currentUseCaseId}
-          />
+              <div>
+                <label
+                  htmlFor="customer-scenario"
+                  className="text-sm font-semibold text-slate-950"
+                >
+                  Customer scenario
+                </label>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Paste customer wording, account notes, or rough compete
+                  statement.
+                </p>
+                <Textarea
+                  id="customer-scenario"
+                  value={input.prompt}
+                  onChange={(event) =>
+                    updateInput("prompt", event.target.value)
+                  }
+                  className="mt-2 min-h-36 resize-none rounded-md bg-slate-50 text-sm"
+                />
+              </div>
+
+              <div>
+                <div className="text-sm font-semibold text-slate-950">
+                  Discovery confidence
+                </div>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Tell the SE Assistant how much is known. Sparse keeps
+                  assumptions visible; validated produces firmer field guidance.
+                </p>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {discoveryConfidenceLevels.map((level) => {
+                    const description = discoveryConfidenceDescriptions[level]
+
+                    return (
+                      <button
+                        key={level}
+                        type="button"
+                        title={description}
+                        aria-label={`${level}: ${description}`}
+                        onClick={() =>
+                          updateInput("discoveryConfidence", level)
+                        }
+                        className={cn(
+                          "group relative rounded-md border px-3 py-2 text-sm font-medium transition-colors",
+                          input.discoveryConfidence === level
+                            ? "border-red-600 bg-red-600 text-white"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        )}
+                      >
+                        {level}
+                        <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-64 max-w-[calc(100vw-3rem)] -translate-x-1/2 rounded-md bg-slate-950 p-3 text-left text-xs font-normal leading-5 text-white shadow-lg group-hover:block group-focus-visible:block">
+                          {description}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={generateAssist}
+                disabled={isGenerating || input.prompt.trim().length === 0}
+              >
+                {isGenerating ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <WandSparkles className="size-4" />
+                )}
+                {isGenerating
+                  ? "Generating with OpenAI"
+                  : "Generate field assist"}
+              </Button>
+
+              <CatalogStatusCard
+                message={catalogMessage}
+                currentUseCaseId={currentUseCaseId}
+              />
+            </TabsContent>
+
+            <TabsContent value="competitor-analysis" className="space-y-5">
+              <div>
+                <div className="text-sm font-semibold text-slate-950">
+                  Competitor selector
+                </div>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Sets the competitive lens for strengths, risks, talk track,
+                  and later Debate Arena prompts.
+                </p>
+                <Select
+                  value={input.competitor}
+                  onValueChange={(value) =>
+                    updateInput("competitor", value as CompetitiveCompetitor)
+                  }
+                >
+                  <SelectTrigger className="mt-2 w-full rounded-md bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {competitiveCompetitors.map((competitor) => (
+                      <SelectItem key={competitor} value={competitor}>
+                        {competitor}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <div className="text-sm font-semibold text-slate-950">
+                  Strategy domain
+                </div>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Use this when the same competitor could mean different
+                  conversations, such as Snowflake for lakehouse versus Azure
+                  for AI platform strategy.
+                </p>
+                <Select
+                  value={input.domain}
+                  onValueChange={(value) =>
+                    updateInput("domain", value as StrategyDomain)
+                  }
+                >
+                  <SelectTrigger className="mt-2 w-full rounded-md bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {competitiveDomains.map((domain) => (
+                      <SelectItem key={domain.value} value={domain.value}>
+                        {domain.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <SearchUseCatalogCard
+                query={catalogSearch}
+                matches={competitorCatalogMatches}
+                competitor={input.competitor}
+                domain={input.domain}
+                onQueryChange={setCatalogSearch}
+              />
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
@@ -571,6 +651,142 @@ function isDiscoveryConfidence(
   )
 }
 
+function filterCatalogForCompetitorAnalysis(
+  items: UseCaseCatalogItem[],
+  competitor: CompetitiveCompetitor,
+  domain: StrategyDomain,
+  query: string
+) {
+  const normalizedQuery = query.trim().toLowerCase()
+
+  return items
+    .filter((item) => {
+      const matchesCurrentLens =
+        item.input.competitor === competitor || item.input.domain === domain
+      const searchableText = [
+        item.title,
+        item.input.prompt,
+        item.input.competitor,
+        formatDomain(item.input.domain),
+        item.brief.battleCardOutput.headline,
+      ]
+        .join(" ")
+        .toLowerCase()
+
+      return (
+        (matchesCurrentLens || normalizedQuery.length > 0) &&
+        (!normalizedQuery || searchableText.includes(normalizedQuery))
+      )
+    })
+    .sort((first, second) => {
+      const firstScore =
+        (first.input.competitor === competitor ? 2 : 0) +
+        (first.input.domain === domain ? 1 : 0)
+      const secondScore =
+        (second.input.competitor === competitor ? 2 : 0) +
+        (second.input.domain === domain ? 1 : 0)
+
+      return secondScore - firstScore
+    })
+    .slice(0, 3)
+}
+
+function SearchUseCatalogCard({
+  query,
+  matches,
+  competitor,
+  domain,
+  onQueryChange,
+}: {
+  query: string
+  matches: UseCaseCatalogItem[]
+  competitor: CompetitiveCompetitor
+  domain: StrategyDomain
+  onQueryChange: (query: string) => void
+}) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-slate-950">
+            Search Use Case Catalog
+          </div>
+          <p className="mt-1 text-xs leading-5 text-slate-600">
+            The list starts with pre-searched use cases for {competitor} /{" "}
+            {formatDomain(domain)}. Search narrows the saved catalog.
+          </p>
+        </div>
+        <Search className="mt-0.5 size-4 shrink-0 text-slate-400" />
+      </div>
+
+      <Input
+        value={query}
+        onChange={(event) => onQueryChange(event.target.value)}
+        placeholder="Search by customer, platform, workload"
+        className="mt-3 h-9 rounded-md bg-slate-50 text-sm"
+      />
+
+      <div className="mt-4 flex items-center justify-between gap-2">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Pre-searched Use Cases
+        </div>
+        <div className="rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-500">
+          {matches.length} shown
+        </div>
+      </div>
+
+      <div className="mt-2 space-y-2">
+        {matches.length > 0 ? (
+          matches.map((item) => (
+            <Link
+              key={item.id}
+              href={`/competitive-se-assist?assistTab=customer-scenario-analysis&useCaseId=${item.id}`}
+              className="block rounded-md border border-slate-200 bg-slate-50 p-3 transition-colors hover:border-slate-300 hover:bg-white"
+            >
+              <div className="flex flex-wrap gap-1.5">
+                <Badge
+                  variant="outline"
+                  className="rounded-md bg-white px-2 py-0.5 text-[11px] font-medium leading-4 text-slate-600"
+                >
+                  {item.input.competitor}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className="rounded-md bg-white px-2 py-0.5 text-[11px] font-medium leading-4 text-slate-600"
+                >
+                  {formatDomain(item.input.domain)}
+                </Badge>
+              </div>
+              <div className="mt-2 line-clamp-2 text-sm font-medium leading-5 text-slate-950">
+                {item.title}
+              </div>
+              <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                {item.input.prompt}
+              </p>
+            </Link>
+          ))
+        ) : (
+          <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+            No matching saved use cases yet. Generate a field assist from
+            Customer Scenario Analysis to create one.
+          </p>
+        )}
+      </div>
+
+      <Button asChild variant="outline" size="sm" className="mt-3 w-full">
+        <Link href="/scenarios">Open Scenarios catalog</Link>
+      </Button>
+    </div>
+  )
+}
+
+function formatDomain(value: string) {
+  return (
+    competitiveDomains.find((domain) => domain.value === value)?.label ??
+    value.replaceAll("-", " ")
+  )
+}
+
 function CatalogStatusCard({
   message,
   currentUseCaseId,
@@ -585,10 +801,10 @@ function CatalogStatusCard({
           <div className="text-sm font-semibold text-slate-950">
             Use case catalog
           </div>
-      <p className="mt-1 text-xs leading-5 text-slate-600">
-        {message ??
-          "Generate with the SE Assistant to save this use case for Scenarios and Debate Arena."}
-      </p>
+          <p className="mt-1 text-xs leading-5 text-slate-600">
+            {message ??
+              "Generate with the SE Assistant to save this use case for Scenarios and Debate Arena."}
+          </p>
         </div>
         <Button asChild variant="outline" size="sm">
           <Link href="/scenarios">View catalog</Link>
@@ -685,7 +901,7 @@ function ConsolePanel({
   tone,
   children,
 }: {
-      title: string
+  title: string
   eyebrow: string
   icon: LucideIcon
   tone: WorkbenchTone

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import {
   Blocks,
   Bot,
@@ -14,7 +14,11 @@ import {
   Swords,
 } from "lucide-react"
 
-import { dashboardNavigation } from "@/lib/navigation"
+import {
+  competitiveAssistWorkflowTabs,
+  dashboardNavigation,
+  getCompetitiveAssistWorkflowTab,
+} from "@/lib/navigation"
 import { cn } from "@/lib/utils"
 
 const navigationIcons = {
@@ -29,6 +33,10 @@ const navigationIcons = {
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const activeAssistTab = getCompetitiveAssistWorkflowTab(
+    searchParams.get("assistTab")
+  )
   const primaryNavigation = dashboardNavigation.filter(
     (item) => item.title !== "Dashboard"
   )
@@ -65,6 +73,8 @@ export function AppSidebar() {
             key={item.href}
             item={item}
             isActive={item.href === pathname}
+            activeAssistTab={activeAssistTab}
+            searchParams={searchParams}
           />
         ))}
 
@@ -74,6 +84,8 @@ export function AppSidebar() {
               key={item.href}
               item={item}
               isActive={item.href === pathname}
+              activeAssistTab={activeAssistTab}
+              searchParams={searchParams}
             />
           ))}
         </div>
@@ -96,40 +108,88 @@ export function AppSidebar() {
 function SidebarNavigationItem({
   item,
   isActive,
+  activeAssistTab,
+  searchParams,
 }: {
   item: (typeof dashboardNavigation)[number]
   isActive: boolean
+  activeAssistTab: ReturnType<typeof getCompetitiveAssistWorkflowTab>
+  searchParams: ReturnType<typeof useSearchParams>
 }) {
   const Icon = navigationIcons[item.title as keyof typeof navigationIcons]
 
   return (
-    <Link
-      key={item.href}
-      href={item.href}
-      className={cn(
-        "group flex items-start gap-3 rounded-md px-3 py-3 text-sm transition-colors",
-        isActive
-          ? "bg-slate-950 text-white shadow-sm"
-          : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-      )}
-    >
-      <Icon
+    <div>
+      <Link
+        key={item.href}
+        href={item.href}
         className={cn(
-          "mt-0.5 size-4 shrink-0",
-          isActive ? "text-white" : "text-slate-500 group-hover:text-red-600"
+          "group flex items-start gap-3 rounded-md px-3 py-3 text-sm transition-colors",
+          isActive
+            ? "bg-slate-950 text-white shadow-sm"
+            : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
         )}
-      />
-      <span>
-        <span className="block font-medium">{item.title}</span>
-        <span
+      >
+        <Icon
           className={cn(
-            "mt-0.5 block text-xs leading-5",
-            isActive ? "text-slate-300" : "text-slate-500"
+            "mt-0.5 size-4 shrink-0",
+            isActive ? "text-white" : "text-slate-500 group-hover:text-red-600"
           )}
-        >
-          {item.description}
+        />
+        <span>
+          <span className="block font-medium">{item.title}</span>
+          <span
+            className={cn(
+              "mt-0.5 block text-xs leading-5",
+              isActive ? "text-slate-300" : "text-slate-500"
+            )}
+          >
+            {item.description}
+          </span>
         </span>
-      </span>
-    </Link>
+      </Link>
+
+      {item.title === "Competitive SE Assist" && isActive ? (
+        <div className="ml-7 mt-2 space-y-1 border-l border-slate-200 pl-3">
+          {competitiveAssistWorkflowTabs.map((tab) => {
+            const isTabActive = activeAssistTab === tab.id
+
+            return (
+              <Link
+                key={tab.id}
+                href={getAssistTabHref(tab.id, searchParams)}
+                className={cn(
+                  "block rounded-md px-3 py-2 text-xs transition-colors",
+                  isTabActive
+                    ? "bg-red-50 font-semibold text-red-700 ring-1 ring-red-100"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-950"
+                )}
+              >
+                <span className="block leading-4">{tab.title}</span>
+                <span
+                  className={cn(
+                    "mt-0.5 block leading-4",
+                    isTabActive ? "text-red-600/80" : "text-slate-400"
+                  )}
+                >
+                  {tab.description}
+                </span>
+              </Link>
+            )
+          })}
+        </div>
+      ) : null}
+    </div>
   )
+}
+
+function getAssistTabHref(
+  tabId: ReturnType<typeof getCompetitiveAssistWorkflowTab>,
+  searchParams: ReturnType<typeof useSearchParams>
+) {
+  const nextParams = new URLSearchParams(searchParams.toString())
+
+  nextParams.set("assistTab", tabId)
+
+  return `/competitive-se-assist?${nextParams.toString()}`
 }
