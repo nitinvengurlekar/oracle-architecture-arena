@@ -176,10 +176,7 @@ function UseCaseCatalogCard({
           />
         </div>
       </CardContent>
-      <CardFooter className="flex-wrap justify-between gap-2 rounded-b-md bg-white">
-        <div className="text-xs font-medium text-slate-500">
-          {item.generation.model ?? "No model recorded"}
-        </div>
+      <CardFooter className="flex-wrap justify-end gap-2 rounded-b-md bg-white">
         <div className="flex gap-2">
           {onSelect ? (
             <Button

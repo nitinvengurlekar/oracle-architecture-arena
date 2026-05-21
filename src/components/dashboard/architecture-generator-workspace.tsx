@@ -90,6 +90,14 @@ type EditableNodeField =
   | "rationale"
   | "status"
 
+type SummaryPanelSize = "comfortable" | "compact" | "hidden"
+
+const summaryPanelOptions = [
+  { value: "comfortable", label: "Full" },
+  { value: "compact", label: "Compact" },
+  { value: "hidden", label: "Hide" },
+] satisfies Array<{ value: SummaryPanelSize; label: string }>
+
 const nodeTypeIcons = {
   input: Database,
   platform: Layers3,
@@ -224,6 +232,18 @@ export function ArchitectureGeneratorWorkspace({
     [nodes, normalizedSelectedNodeId]
   )
   const nodeCards = useMemo(() => nodes.map((node) => node.data), [nodes])
+  const [summaryPanelSize, setSummaryPanelSize] =
+    useState<SummaryPanelSize>("comfortable")
+  const isSummaryCompact = summaryPanelSize === "compact"
+  const isSummaryHidden = summaryPanelSize === "hidden"
+  const workspaceLayoutClass = cn(
+    "grid gap-4",
+    isSummaryHidden
+      ? "2xl:grid-cols-1"
+      : isSummaryCompact
+        ? "2xl:grid-cols-[minmax(0,1fr)_320px]"
+        : "2xl:grid-cols-[minmax(0,1fr)_430px]"
+  )
 
   const applyArchitectureSelection = useCallback(
     (historyItem: ArchitectureHistoryItem) => {
@@ -342,7 +362,7 @@ export function ArchitectureGeneratorWorkspace({
   }
 
   return (
-    <div className="grid gap-4 2xl:grid-cols-[1fr_430px]">
+    <div className={workspaceLayoutClass}>
       <div className="flex flex-col gap-4">
         <GeneratorCommandBar
           blueprint={activeBlueprint}
@@ -375,13 +395,44 @@ export function ArchitectureGeneratorWorkspace({
                   Generated OCI architecture
                 </CardTitle>
               </div>
-              <Badge variant="outline" className="rounded-md bg-white">
-                Drag nodes or select one to edit
-              </Badge>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Badge variant="outline" className="rounded-md bg-white">
+                  Drag nodes or select one to edit
+                </Badge>
+                <div
+                  className="flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 p-1"
+                  title="Change how much horizontal space the summary and node inspector panel use."
+                >
+                  <span className="px-2 text-xs font-semibold text-slate-500">
+                    Panel
+                  </span>
+                  {summaryPanelOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={summaryPanelSize === option.value}
+                      onClick={() => setSummaryPanelSize(option.value)}
+                      className={cn(
+                        "rounded px-2.5 py-1 text-xs font-semibold transition-colors",
+                        summaryPanelSize === option.value
+                          ? "bg-slate-950 text-white"
+                          : "text-slate-600 hover:bg-white"
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="h-[620px] bg-slate-50">
+            <div
+              className={cn(
+                "bg-slate-50",
+                isSummaryHidden ? "h-[720px]" : "h-[620px]"
+              )}
+            >
               <ReactFlowProvider>
                 <FlowErrorInitializer />
                 <ReactFlow
@@ -422,17 +473,20 @@ export function ArchitectureGeneratorWorkspace({
         />
       </div>
 
-      <aside className="flex flex-col gap-4">
-        <ArchitectureSummaryPanel
-          blueprint={activeBlueprint}
-          recommendation={activeRecommendation}
-          nodeCount={nodes.length}
-        />
-        <NodeInspector
-          node={selectedNode}
-          onUpdate={updateSelectedNode}
-        />
-      </aside>
+      {!isSummaryHidden ? (
+        <aside className="flex min-w-0 flex-col gap-4">
+          <ArchitectureSummaryPanel
+            blueprint={activeBlueprint}
+            recommendation={activeRecommendation}
+            nodeCount={nodes.length}
+            isCompact={isSummaryCompact}
+          />
+          <NodeInspector
+            node={selectedNode}
+            onUpdate={updateSelectedNode}
+          />
+        </aside>
+      ) : null}
     </div>
   )
 }
@@ -765,10 +819,12 @@ function ArchitectureSummaryPanel({
   blueprint,
   recommendation,
   nodeCount,
+  isCompact,
 }: {
   blueprint: ArchitectureGeneratorBlueprint
   recommendation: ArchitectureRecommendation
   nodeCount: number
+  isCompact: boolean
 }) {
   return (
     <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
@@ -787,7 +843,12 @@ function ArchitectureSummaryPanel({
           </span>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent
+        className={cn(
+          "space-y-4",
+          isCompact && "2xl:max-h-[660px] 2xl:overflow-y-auto 2xl:pr-3"
+        )}
+      >
         <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
             <Target className="size-4 text-red-600" />
@@ -798,7 +859,12 @@ function ArchitectureSummaryPanel({
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div
+          className={cn(
+            "grid gap-2",
+            isCompact ? "grid-cols-1" : "grid-cols-3"
+          )}
+        >
           {blueprint.metrics.map((metric) => (
             <MetricTile key={metric.label} metric={metric} />
           ))}

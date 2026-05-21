@@ -2,7 +2,7 @@ import type { NavigationItem } from "@/types/workbench"
 
 export const dashboardNavigation = [
   {
-    title: "About",
+    title: "How to Get Started",
     href: "/about",
     description: "What this workbench does",
   },

@@ -57,6 +57,15 @@ type GenerationMeta = Pick<
   "mode" | "model" | "ragContext" | "warning"
 >
 
+const discoveryConfidenceDescriptions = {
+  Sparse:
+    "Early signal only. Keep assumptions visible and prioritize Discovery Agent questions.",
+  Directional:
+    "Enough context to form a point of view, but still validate priorities and constraints.",
+  Validated:
+    "Customer priorities are confirmed, so the SE Assistant can provide firmer field guidance.",
+} satisfies Record<CompetitiveAssistInput["discoveryConfidence"], string>
+
 export function CompetitiveAssistWorkspace() {
   const [activeSignalId, setActiveSignalId] = useState(customerSignalChips[0].id)
   const [input, setInput] = useState<CompetitiveAssistInput>(
@@ -73,6 +82,9 @@ export function CompetitiveAssistWorkspace() {
   const [currentUseCaseId, setCurrentUseCaseId] = useState<string>()
   const [catalogMessage, setCatalogMessage] = useState<string>()
   const [isGenerating, setIsGenerating] = useState(false)
+  const selectedStarterScenario = customerSignalChips.find(
+    (signal) => signal.id === activeSignalId
+  )
 
   useEffect(() => {
     let isActive = true
@@ -309,41 +321,35 @@ export function CompetitiveAssistWorkspace() {
               Starter scenarios
             </div>
             <p className="mt-1 text-xs leading-5 text-slate-500">
-              These shortcuts prefill the competitor, strategy domain,
-              confidence level, and customer context. Use one when the pursuit
-              resembles a common compete motion, then edit the details below.
+              Select one when the pursuit resembles a common compete motion,
+              then edit the customer context below.
             </p>
-            <div className="mt-2 grid gap-2">
-              {customerSignalChips.map((signal) => {
-                const isActive = activeSignalId === signal.id
-
-                return (
-                  <button
-                    key={signal.id}
-                    type="button"
-                    onClick={() => applySignalChip(signal.id)}
-                    className={cn(
-                      "rounded-md border p-3 text-left transition-colors",
-                      isActive
-                        ? "border-slate-950 bg-slate-950 text-white"
-                        : "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white"
-                    )}
-                  >
-                    <span className="block text-sm font-semibold">
+            <Select
+              value={selectedStarterScenario?.id}
+              onValueChange={applySignalChip}
+            >
+              <SelectTrigger className="mt-2 w-full rounded-md bg-white">
+                <SelectValue placeholder="Select a starter scenario" />
+              </SelectTrigger>
+              <SelectContent>
+                {customerSignalChips.map((signal) => {
+                  return (
+                    <SelectItem key={signal.id} value={signal.id}>
                       {signal.label}
-                    </span>
-                    <span
-                      className={cn(
-                        "mt-1 block text-xs leading-5",
-                        isActive ? "text-slate-300" : "text-slate-500"
-                      )}
-                    >
-                      {signal.description}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+            {selectedStarterScenario ? (
+              <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+                {selectedStarterScenario.description}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                Current context is custom or loaded from the saved catalog.
+              </p>
+            )}
           </div>
 
           <div>
@@ -404,21 +410,30 @@ export function CompetitiveAssistWorkspace() {
                 visible; validated produces firmer field guidance.
               </p>
               <div className="mt-2 grid grid-cols-3 gap-2">
-                {discoveryConfidenceLevels.map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    onClick={() => updateInput("discoveryConfidence", level)}
-                    className={cn(
-                      "rounded-md border px-3 py-2 text-sm font-medium transition-colors",
-                      input.discoveryConfidence === level
-                        ? "border-red-600 bg-red-600 text-white"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                    )}
-                  >
-                    {level}
-                  </button>
-                ))}
+                {discoveryConfidenceLevels.map((level) => {
+                  const description = discoveryConfidenceDescriptions[level]
+
+                  return (
+                    <button
+                      key={level}
+                      type="button"
+                      title={description}
+                      aria-label={`${level}: ${description}`}
+                      onClick={() => updateInput("discoveryConfidence", level)}
+                      className={cn(
+                        "group relative rounded-md border px-3 py-2 text-sm font-medium transition-colors",
+                        input.discoveryConfidence === level
+                          ? "border-red-600 bg-red-600 text-white"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      )}
+                    >
+                      {level}
+                      <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-64 max-w-[calc(100vw-3rem)] -translate-x-1/2 rounded-md bg-slate-950 p-3 text-left text-xs font-normal leading-5 text-white shadow-lg group-hover:block group-focus-visible:block">
+                        {description}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>

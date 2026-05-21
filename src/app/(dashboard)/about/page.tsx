@@ -61,7 +61,7 @@ export default function AboutPage() {
   return (
     <AnimatedPage>
       <PageHeader
-        eyebrow="About"
+        eyebrow="How to Get Started"
         title="Executive Architecture Decision Simulation"
         description="Oracle Architecture Arena is an AI-powered workbench for moving from incomplete customer context to competitive strategy, architecture debate, and reusable architecture outputs."
         actions={
