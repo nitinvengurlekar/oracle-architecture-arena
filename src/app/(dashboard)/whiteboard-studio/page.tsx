@@ -11,7 +11,6 @@ export default function WhiteboardStudioPage() {
   return (
     <AnimatedPage>
       <PageHeader
-        eyebrow="Whiteboard Studio"
         title="Sketch-to-architecture workspace"
         description="Capture early solution ideas, customer-drawn flows, and architecture notes before converting them into structured debate and generator inputs."
       />

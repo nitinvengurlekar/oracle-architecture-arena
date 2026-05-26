@@ -2,9 +2,8 @@
 
 import Link from "next/link"
 import { ArrowRight, PencilLine, RotateCcw } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 
-import { Scoreboard } from "@/components/dashboard/scoreboard"
 import { UseCaseCatalog } from "@/components/dashboard/use-case-catalog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -49,12 +48,6 @@ export function ScenariosWorkspace({ scenarios }: { scenarios: Scenario[] }) {
   const [templates, setTemplates] = useState<EditableTemplate[]>(() =>
     scenarios.map(createEditableTemplate)
   )
-  const selectedUseCase = catalogItems.find((item) => item.id === selectedUseCaseId)
-  const readinessItems = useMemo(
-    () => createReadinessItems(selectedUseCase),
-    [selectedUseCase]
-  )
-
   useEffect(() => {
     let isActive = true
     const timeoutId = window.setTimeout(() => {
@@ -106,7 +99,7 @@ export function ScenariosWorkspace({ scenarios }: { scenarios: Scenario[] }) {
   }
 
   return (
-    <section className="grid gap-4 xl:grid-cols-[1fr_360px]">
+    <section className="space-y-6">
       <div className="flex flex-col gap-6">
         <div>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -130,6 +123,7 @@ export function ScenariosWorkspace({ scenarios }: { scenarios: Scenario[] }) {
             hasLoaded={hasLoadedCatalog}
             selectedId={selectedUseCaseId}
             onSelect={setSelectedUseCaseId}
+            getReadinessItems={createReadinessItems}
           />
         </div>
 
@@ -160,41 +154,6 @@ export function ScenariosWorkspace({ scenarios }: { scenarios: Scenario[] }) {
             ))}
           </div>
         </div>
-      </div>
-
-      <div className="flex flex-col gap-4 xl:sticky xl:top-24 xl:self-start">
-        <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold text-slate-950">
-              Focused use case
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {selectedUseCase ? (
-              <div>
-                <div className="flex flex-wrap gap-2">
-                  <Badge className="rounded-md bg-red-600 text-white">
-                    {selectedUseCase.input.competitor}
-                  </Badge>
-                  <Badge variant="outline" className="rounded-md bg-slate-50">
-                    {formatDomain(selectedUseCase.input.domain)}
-                  </Badge>
-                </div>
-                <div className="mt-3 text-sm font-semibold text-slate-950">
-                  {selectedUseCase.title}
-                </div>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  {selectedUseCase.brief.battleCardOutput.headline}
-                </p>
-              </div>
-            ) : (
-              <p className="text-sm leading-6 text-slate-600">
-                Select or generate a use case to populate readiness scores.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-        <Scoreboard title="Scenario readiness" items={readinessItems} />
       </div>
     </section>
   )
@@ -365,35 +324,7 @@ function buildTemplateQuery(template: EditableTemplate) {
   return params.toString()
 }
 
-function createReadinessItems(
-  item: UseCaseCatalogItem | undefined
-): ScoreboardItem[] {
-  if (!item) {
-    return [
-      {
-        label: "Discovery depth",
-        score: 0,
-        target: 80,
-        insight: "No generated use case is focused yet.",
-        tone: "slate",
-      },
-      {
-        label: "Positioning clarity",
-        score: 0,
-        target: 85,
-        insight: "Select a saved use case to calculate Oracle positioning readiness.",
-        tone: "slate",
-      },
-      {
-        label: "Retrieval coverage",
-        score: 0,
-        target: 75,
-        insight: "RAG context coverage will appear after a generated use case is selected.",
-        tone: "slate",
-      },
-    ]
-  }
-
+function createReadinessItems(item: UseCaseCatalogItem): ScoreboardItem[] {
   const confidenceScore = {
     Sparse: 42,
     Directional: 62,
@@ -459,8 +390,4 @@ function normalizeCompetitor(value: string): CompetitiveCompetitor {
 
 function clamp(value: number) {
   return Math.min(100, Math.max(0, Math.round(value)))
-}
-
-function formatDomain(value: string) {
-  return value.replaceAll("-", " ")
 }

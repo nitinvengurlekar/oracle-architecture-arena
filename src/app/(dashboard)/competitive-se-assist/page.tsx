@@ -8,7 +8,6 @@ export default function CompetitiveSeAssistPage() {
   return (
     <AnimatedPage>
       <PageHeader
-        eyebrow="Competitive SE Assist"
         title="Build strategy from customer context"
         description="Use the SE Assistant and Discovery Agent to infer priorities, identify Oracle positioning, and translate competitive context into field guidance."
       />

@@ -17,7 +17,7 @@ import {
   Target,
   TriangleAlert,
 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -40,7 +40,6 @@ import type {
   DebateAgentPanel,
   DebateScore,
   CompetitiveCompetitor,
-  RagReference,
   UseCaseCatalogItem,
   WorkbenchTone,
 } from "@/types/workbench"
@@ -51,35 +50,58 @@ const agentIcons = {
   judge: Gavel,
 } satisfies Record<DebateAgentPanel["role"], LucideIcon>
 
+type DebateGenerationMeta = Pick<
+  DebateArenaGenerationResult,
+  | "mode"
+  | "model"
+  | "reasoningEffort"
+  | "ragContext"
+  | "warning"
+  | "runId"
+  | "source"
+>
+
+type SavedDebateRun = {
+  id: string
+  useCaseId: string
+  input: DebateArenaGenerationInput
+  debate: ArchitectureDebate
+  generation: {
+    mode: DebateArenaGenerationResult["mode"]
+    model?: string
+    reasoningEffort?: string
+    warning?: string
+  }
+  ragContext: DebateArenaGenerationResult["ragContext"]
+  createdAt: string
+}
+
+type DebateRunsApiResponse = {
+  items: SavedDebateRun[]
+  source: "database" | "seeded-fallback"
+  warning?: string
+}
+
+const emptyGenerationMeta: DebateGenerationMeta = {
+  mode: "mock",
+  ragContext: [],
+}
+
 export function DebateArenaWorkspace({
   debate,
 }: {
   debate: ArchitectureDebate
 }) {
   const [catalogItems, setCatalogItems] = useState<UseCaseCatalogItem[]>([])
-  const [selectedUseCaseId, setSelectedUseCaseId] = useState("baseline")
+  const [selectedUseCaseId, setSelectedUseCaseId] = useState("")
   const [selectedCompetitor, setSelectedCompetitor] =
     useState<CompetitiveCompetitor>("Databricks")
-  const [currentDebate, setCurrentDebate] = useState(debate)
+  const [currentDebate, setCurrentDebate] = useState<ArchitectureDebate>()
   const [isGenerating, setIsGenerating] = useState(false)
-  const [generationMeta, setGenerationMeta] = useState<
-    Pick<
-      DebateArenaGenerationResult,
-      | "mode"
-      | "model"
-      | "reasoningEffort"
-      | "ragContext"
-      | "warning"
-      | "runId"
-      | "source"
-    >
-  >({
-    mode: "mock",
-    model: "Baseline draft",
-    ragContext: [],
-    warning:
-      "Select a saved use case and generate a Debate Arena review to replace the baseline draft.",
-  })
+  const [isLoadingSavedDebate, setIsLoadingSavedDebate] = useState(false)
+  const [generationMeta, setGenerationMeta] =
+    useState<DebateGenerationMeta>(emptyGenerationMeta)
+  const savedDebateRequestId = useRef(0)
   const selectedUseCase = catalogItems.find(
     (item) => item.id === selectedUseCaseId
   )
@@ -92,18 +114,22 @@ export function DebateArenaWorkspace({
       }),
     [debate, selectedUseCase, selectedCompetitor]
   )
-  const oracleTotal = weightedScore(
-    currentDebate.scores.map((score) => ({
-      score: score.oracleScore,
-      weight: score.judgeWeight,
-    }))
-  )
-  const competitorTotal = weightedScore(
-    currentDebate.scores.map((score) => ({
-      score: score.competitorScore,
-      weight: score.judgeWeight,
-    }))
-  )
+  const oracleTotal = currentDebate
+    ? weightedScore(
+        currentDebate.scores.map((score) => ({
+          score: score.oracleScore,
+          weight: score.judgeWeight,
+        }))
+      )
+    : 0
+  const competitorTotal = currentDebate
+    ? weightedScore(
+        currentDebate.scores.map((score) => ({
+          score: score.competitorScore,
+          weight: score.judgeWeight,
+        }))
+      )
+    : 0
 
   useEffect(() => {
     let isActive = true
@@ -114,11 +140,6 @@ export function DebateArenaWorkspace({
         }
 
         setCatalogItems(items)
-
-        if (items[0]) {
-          setSelectedUseCaseId(items[0].id)
-          setSelectedCompetitor(items[0].input.competitor)
-        }
       })
     }, 0)
 
@@ -128,17 +149,85 @@ export function DebateArenaWorkspace({
     }
   }, [])
 
-  function updateSelectedUseCase(value: string) {
+  async function updateSelectedUseCase(value: string) {
+    const requestId = savedDebateRequestId.current + 1
+    savedDebateRequestId.current = requestId
     setSelectedUseCaseId(value)
+    setCurrentDebate(undefined)
+    setGenerationMeta({
+      ...emptyGenerationMeta,
+      warning: "Checking for a saved Debate Arena run for this use case.",
+    })
 
     const useCase = catalogItems.find((item) => item.id === value)
 
     if (useCase) {
       setSelectedCompetitor(useCase.input.competitor)
     }
+
+    if (!value) {
+      setGenerationMeta(emptyGenerationMeta)
+      return
+    }
+
+    setIsLoadingSavedDebate(true)
+
+    try {
+      const result = await fetchLatestSavedDebate(value)
+      const savedRun = result.items[0]
+
+      if (savedDebateRequestId.current !== requestId) {
+        return
+      }
+
+      if (savedRun) {
+        setCurrentDebate(savedRun.debate)
+        setSelectedCompetitor(savedRun.input.competitor)
+        setGenerationMeta({
+          mode: savedRun.generation.mode,
+          model: savedRun.generation.model,
+          reasoningEffort: savedRun.generation.reasoningEffort,
+          ragContext: savedRun.ragContext,
+          warning: savedRun.generation.warning,
+          runId: savedRun.id,
+          source: result.source === "database" ? "database" : undefined,
+        })
+        return
+      }
+
+      setGenerationMeta({
+        ...emptyGenerationMeta,
+        source: result.source === "database" ? "database" : undefined,
+        warning:
+          result.warning ??
+          "No saved debate exists for this use case yet. Generate one to preserve it for later.",
+      })
+    } catch {
+      if (savedDebateRequestId.current !== requestId) {
+        return
+      }
+
+      setGenerationMeta({
+        ...emptyGenerationMeta,
+        warning:
+          "Saved debate lookup did not complete. Generate a debate to create one for this use case.",
+      })
+    } finally {
+      if (savedDebateRequestId.current === requestId) {
+        setIsLoadingSavedDebate(false)
+      }
+    }
   }
 
   async function generateDebate() {
+    if (!selectedUseCase) {
+      setGenerationMeta({
+        ...emptyGenerationMeta,
+        warning: "Select a use case before generating a Debate Arena review.",
+      })
+      return
+    }
+
     setIsGenerating(true)
 
     try {
@@ -194,36 +283,44 @@ export function DebateArenaWorkspace({
         selectedCompetitor={selectedCompetitor}
         generationMeta={generationMeta}
         isGenerating={isGenerating}
+        isLoadingSavedDebate={isLoadingSavedDebate}
+        hasCurrentDebate={Boolean(currentDebate)}
         onSelectUseCase={updateSelectedUseCase}
         onSelectCompetitor={setSelectedCompetitor}
         onGenerate={generateDebate}
       />
 
-      <DebateBrief
-        scenario={currentDebate.scenario}
-        customerContext={currentDebate.customerContext}
-        oracleTotal={oracleTotal}
-        competitorTotal={competitorTotal}
-        generationMeta={generationMeta}
-      />
-
-      <section className="grid items-stretch gap-4 xl:grid-cols-3">
-        <AgentPanel agent={currentDebate.agents.oracle} />
-        <AgentPanel agent={currentDebate.agents.competitor} />
-        <AgentPanel agent={currentDebate.agents.judge} />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1fr_420px]">
-        <ScoringSystem scores={currentDebate.scores} />
-        <div className="flex flex-col gap-4">
-          <RecommendationSummary
-            debate={currentDebate}
+      {currentDebate ? (
+        <>
+          <DebateBrief
+            scenario={currentDebate.scenario}
+            customerContext={currentDebate.customerContext}
             oracleTotal={oracleTotal}
             competitorTotal={competitorTotal}
+            generationMeta={generationMeta}
           />
-          <KnowledgeContextPanel references={generationMeta.ragContext} />
-        </div>
-      </section>
+
+          <section className="grid items-stretch gap-4 xl:grid-cols-3">
+            <AgentPanel agent={currentDebate.agents.oracle} />
+            <AgentPanel agent={currentDebate.agents.competitor} />
+            <AgentPanel agent={currentDebate.agents.judge} />
+          </section>
+
+          <section className="grid items-stretch gap-4 xl:grid-cols-[1fr_420px]">
+            <ScoringSystem scores={currentDebate.scores} />
+            <RecommendationSummary
+              debate={currentDebate}
+              oracleTotal={oracleTotal}
+              competitorTotal={competitorTotal}
+            />
+          </section>
+        </>
+      ) : (
+        <DebateEmptyState
+          selectedUseCase={selectedUseCase}
+          isLoadingSavedDebate={isLoadingSavedDebate}
+        />
+      )}
     </div>
   )
 }
@@ -234,6 +331,8 @@ function DebateControls({
   selectedCompetitor,
   generationMeta,
   isGenerating,
+  isLoadingSavedDebate,
+  hasCurrentDebate,
   onSelectUseCase,
   onSelectCompetitor,
   onGenerate,
@@ -241,21 +340,28 @@ function DebateControls({
   catalogItems: UseCaseCatalogItem[]
   selectedUseCaseId: string
   selectedCompetitor: CompetitiveCompetitor
-  generationMeta: Pick<
-    DebateArenaGenerationResult,
-    | "mode"
-    | "model"
-    | "reasoningEffort"
-    | "ragContext"
-    | "warning"
-    | "runId"
-    | "source"
-  >
+  generationMeta: DebateGenerationMeta
   isGenerating: boolean
+  isLoadingSavedDebate: boolean
+  hasCurrentDebate: boolean
   onSelectUseCase: (value: string) => void
   onSelectCompetitor: (value: CompetitiveCompetitor) => void
   onGenerate: () => void
 }) {
+  const canGenerate =
+    Boolean(selectedUseCaseId) &&
+    !hasCurrentDebate &&
+    !isLoadingSavedDebate &&
+    !isGenerating
+  const competitorLocked = hasCurrentDebate || isLoadingSavedDebate || isGenerating
+  const generateButtonLabel = isGenerating
+    ? "Generating debate"
+    : isLoadingSavedDebate
+      ? "Checking saved debate"
+      : hasCurrentDebate
+        ? "Saved debate loaded"
+        : "Generate debate"
+
   return (
     <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
       <CardContent className="grid gap-4 py-4 xl:grid-cols-[1fr_220px_auto] xl:items-end">
@@ -263,12 +369,14 @@ function DebateControls({
           <div className="text-sm font-semibold text-slate-950">
             Use case context
           </div>
-          <Select value={selectedUseCaseId} onValueChange={onSelectUseCase}>
+          <Select
+            value={selectedUseCaseId || undefined}
+            onValueChange={onSelectUseCase}
+          >
             <SelectTrigger className="mt-2 w-full rounded-md bg-white">
-              <SelectValue />
+              <SelectValue placeholder="Select a saved use case" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="baseline">Baseline demo scenario</SelectItem>
               {catalogItems.map((item) => (
                 <SelectItem key={item.id} value={item.id}>
                   {item.title}
@@ -283,6 +391,7 @@ function DebateControls({
           </div>
           <Select
             value={selectedCompetitor}
+            disabled={competitorLocked}
             onValueChange={(value) =>
               onSelectCompetitor(value as CompetitiveCompetitor)
             }
@@ -302,16 +411,16 @@ function DebateControls({
         <div className="group relative">
           <Button
             onClick={onGenerate}
-            disabled={isGenerating}
+            disabled={!canGenerate}
             className="w-full xl:w-auto"
             aria-describedby="debate-generation-model"
           >
-            {isGenerating ? (
+            {isGenerating || isLoadingSavedDebate ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <BrainCircuit className="size-4" />
             )}
-            {isGenerating ? "Generating debate" : "Generate debate"}
+            {generateButtonLabel}
           </Button>
           <div
             id="debate-generation-model"
@@ -335,9 +444,45 @@ function DebateControls({
         ) : null}
         {generationMeta.source === "database" && generationMeta.runId ? (
           <p className="text-sm leading-6 text-emerald-700 xl:col-span-3">
-            Saved Debate Arena run to the database for reuse in Architecture Generator.
+            Loaded a saved Debate Arena run from the database. Choose a use case
+            with no saved debate to generate a new one.
           </p>
         ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
+function DebateEmptyState({
+  selectedUseCase,
+  isLoadingSavedDebate,
+}: {
+  selectedUseCase?: UseCaseCatalogItem
+  isLoadingSavedDebate: boolean
+}) {
+  const title = isLoadingSavedDebate
+    ? "Checking saved Debate Arena runs"
+    : selectedUseCase
+      ? "No saved debate yet"
+      : "Select a use case to start"
+  const body = isLoadingSavedDebate
+    ? "The workbench is checking whether this use case already has a Debate Arena result."
+    : selectedUseCase
+      ? "Generate the debate once, then the result will stay available for later review and architecture generation."
+      : "Debate Arena will stay empty until you choose a saved customer scenario from the use case context menu."
+
+  return (
+    <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
+      <CardContent className="flex min-h-72 flex-col items-center justify-center py-12 text-center">
+        <span className="flex size-12 items-center justify-center rounded-md bg-slate-950 text-white">
+          {isLoadingSavedDebate ? (
+            <Loader2 className="size-5 animate-spin" />
+          ) : (
+            <Scale className="size-5" />
+          )}
+        </span>
+        <h3 className="mt-4 text-xl font-semibold text-slate-950">{title}</h3>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">{body}</p>
       </CardContent>
     </Card>
   )
@@ -473,54 +618,6 @@ function AgentPanel({ agent }: { agent: DebateAgentPanel }) {
   )
 }
 
-function KnowledgeContextPanel({ references }: { references: RagReference[] }) {
-  return (
-    <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
-      <CardHeader className="rounded-t-md border-b border-slate-200">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-              RAG foundation
-            </div>
-            <CardTitle className="mt-1 text-xl font-semibold text-slate-950">
-              Knowledge base context
-            </CardTitle>
-          </div>
-          <span className="flex size-10 items-center justify-center rounded-md bg-emerald-600 text-white">
-            <DatabaseZap className="size-5" />
-          </span>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {references.length > 0 ? (
-          references.slice(0, 4).map((reference) => (
-            <div
-              key={reference.id}
-              className="rounded-md border border-slate-200 bg-slate-50 p-3"
-            >
-              <div className="text-sm font-semibold text-slate-950">
-                {reference.title}
-              </div>
-              <div className="mt-1 text-xs font-semibold uppercase text-emerald-700">
-                {reference.sourceType.replaceAll("-", " ")}
-              </div>
-              <p className="mt-2 text-xs leading-5 text-slate-600">
-                {reference.excerpt}
-              </p>
-            </div>
-          ))
-        ) : (
-          <p className="text-sm leading-6 text-slate-600">
-            Generate a debate to retrieve context. The next backend step can
-            replace this local corpus with Oracle documents, embeddings, and
-            vector search.
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
 function getAgentPanelName(agent: DebateAgentPanel) {
   if (agent.role === "oracle") {
     return "Oracle Architect Agent"
@@ -605,7 +702,7 @@ function AgentList({
 
 function ScoringSystem({ scores }: { scores: DebateScore[] }) {
   return (
-    <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
+    <Card className="flex h-full flex-col rounded-md border-0 bg-white shadow-sm ring-slate-200">
       <CardHeader className="rounded-t-md border-b border-slate-200">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -713,7 +810,7 @@ function RecommendationSummary({
   const recommendation = debate.recommendation
 
   return (
-    <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
+    <Card className="flex h-full flex-col rounded-md border-0 bg-white shadow-sm ring-slate-200">
       <CardHeader className="rounded-t-md border-b border-slate-200">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -729,12 +826,7 @@ function RecommendationSummary({
           </span>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <SummaryScore label="Oracle" score={oracleTotal} tone="red" />
-          <SummaryScore label="Competitor" score={competitorTotal} tone="blue" />
-        </div>
-
+      <CardContent className="flex flex-1 flex-col gap-4">
         <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
             <Gauge className="size-4 text-red-600" />
@@ -772,6 +864,10 @@ function RecommendationSummary({
           icon={ArrowRight}
           tone="blue"
         />
+        <div className="mt-auto grid grid-cols-2 gap-3 border-t border-slate-200 pt-4">
+          <SummaryScore label="Oracle" score={oracleTotal} tone="red" />
+          <SummaryScore label="Competitor" score={competitorTotal} tone="blue" />
+        </div>
       </CardContent>
     </Card>
   )
@@ -841,6 +937,18 @@ function weightedScore(items: Array<{ score: number; weight: number }>) {
   )
 
   return Math.round(weightedTotal / totalWeight)
+}
+
+async function fetchLatestSavedDebate(useCaseId: string) {
+  const response = await fetch(
+    `/api/debate-runs?useCaseId=${encodeURIComponent(useCaseId)}&limit=1`
+  )
+
+  if (!response.ok) {
+    throw new Error("Unable to load saved Debate Arena runs.")
+  }
+
+  return (await response.json()) as DebateRunsApiResponse
 }
 
 function createDebateInput({

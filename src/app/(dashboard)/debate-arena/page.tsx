@@ -7,7 +7,6 @@ export default function DebateArenaPage() {
   return (
     <AnimatedPage>
       <PageHeader
-        eyebrow="Debate Arena"
         title="Multi-agent strategy review"
         description="Coordinate modernization, AI platform, economics, security, and sovereign deployment perspectives before a solution path is promoted to architecture generation."
       />

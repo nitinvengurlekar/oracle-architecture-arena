@@ -9,7 +9,6 @@ export default function ScenariosPage() {
   return (
     <AnimatedPage>
       <PageHeader
-        eyebrow="Use case catalog"
         title="Saved pursuit workbench"
         description="Revisit generated SE Assist outputs, review battle-card guidance, and reopen prior customer use cases from this browser."
         actions={

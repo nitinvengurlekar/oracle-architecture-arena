@@ -24,7 +24,6 @@ export default function DashboardPage() {
   return (
     <AnimatedPage>
       <PageHeader
-        eyebrow="Oracle Architecture Arena"
         title="Start with a customer signal"
         description="Use the workbench as a guided path from incomplete competitive context to discovery questions, architecture debate, blueprint generation, and whiteboard notes."
         actions={<DashboardActions brief={dashboardBrief} />}

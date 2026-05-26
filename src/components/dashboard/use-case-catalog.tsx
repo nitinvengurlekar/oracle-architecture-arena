@@ -7,29 +7,23 @@ import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { getToneClasses } from "@/lib/tone"
 import { loadUseCaseCatalog } from "@/lib/use-case-catalog"
 import { cn } from "@/lib/utils"
-import type { UseCaseCatalogItem } from "@/types/workbench"
-
-const statDescriptions = {
-  Questions:
-    "Discovery questions generated for the SE to ask next. Higher count usually means the use case has richer qualification coverage.",
-  Positions:
-    "Oracle positioning opportunities generated for this customer context. These are the main angles for field guidance.",
-  "RAG refs":
-    "Retrieved context references used to ground the assist. Today these come from the local RAG-ready corpus.",
-} satisfies Record<string, string>
+import type { ScoreboardItem, UseCaseCatalogItem } from "@/types/workbench"
 
 export function UseCaseCatalog({
   items: controlledItems,
   hasLoaded: controlledHasLoaded,
   selectedId,
   onSelect,
+  getReadinessItems,
 }: {
   items?: UseCaseCatalogItem[]
   hasLoaded?: boolean
   selectedId?: string
   onSelect?: (id: string) => void
+  getReadinessItems?: (item: UseCaseCatalogItem) => ScoreboardItem[]
 }) {
   const [localItems, setLocalItems] = useState<UseCaseCatalogItem[]>([])
   const [localHasLoaded, setLocalHasLoaded] = useState(false)
@@ -103,6 +97,7 @@ export function UseCaseCatalog({
           item={item}
           isSelected={selectedId === item.id}
           onSelect={onSelect}
+          readinessItems={getReadinessItems?.(item)}
         />
       ))}
     </section>
@@ -113,10 +108,12 @@ function UseCaseCatalogCard({
   item,
   isSelected,
   onSelect,
+  readinessItems,
 }: {
   item: UseCaseCatalogItem
   isSelected: boolean
   onSelect?: (id: string) => void
+  readinessItems?: ScoreboardItem[]
 }) {
   return (
     <Card
@@ -136,6 +133,14 @@ function UseCaseCatalogCard({
           <Badge variant="secondary" className="rounded-md">
             {item.generation.mode === "llm" ? "OpenAI LLM" : "Local fallback"}
           </Badge>
+          {isSelected ? (
+            <Badge
+              variant="outline"
+              className="rounded-md border-red-200 bg-red-50 text-red-700"
+            >
+              Focused use case
+            </Badge>
+          ) : null}
         </div>
         <CardTitle className="pt-2 text-lg font-semibold text-slate-950">
           {item.title}
@@ -145,35 +150,41 @@ function UseCaseCatalogCard({
           Updated {formatDate(item.updatedAt)}
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+      <CardContent className="space-y-3">
+        <div className="line-clamp-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-700">
           {item.input.prompt}
         </div>
-        <div className="rounded-md bg-slate-950 p-4 text-white">
+        {readinessItems ? (
+          <ScenarioReadinessStrip
+            items={readinessItems}
+            showDetails={isSelected}
+          />
+        ) : null}
+        <div
+          className={cn(
+            "rounded-md p-4",
+            isSelected
+              ? "border border-red-100 bg-red-50 text-slate-950"
+              : "bg-slate-950 text-white"
+          )}
+        >
           <div className="flex items-center gap-2 text-sm font-semibold">
-            <Sparkles className="size-4 text-red-300" />
+            <Sparkles
+              className={cn(
+                "size-4",
+                isSelected ? "text-red-600" : "text-red-300"
+              )}
+            />
             Generated battle-card headline
           </div>
-          <p className="mt-2 text-sm leading-6 text-slate-100">
+          <p
+            className={cn(
+              "mt-2 line-clamp-2 text-sm leading-6",
+              isSelected ? "text-slate-700" : "text-slate-100"
+            )}
+          >
             {item.brief.battleCardOutput.headline}
           </p>
-        </div>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <CatalogStat
-            label="Questions"
-            value={item.brief.discoveryQuestions.length}
-            description={statDescriptions.Questions}
-          />
-          <CatalogStat
-            label="Positions"
-            value={item.brief.oracleOpportunities.length}
-            description={statDescriptions.Positions}
-          />
-          <CatalogStat
-            label="RAG refs"
-            value={item.ragContext.length}
-            description={statDescriptions["RAG refs"]}
-          />
         </div>
       </CardContent>
       <CardFooter className="flex-wrap justify-end gap-2 rounded-b-md bg-white">
@@ -199,29 +210,74 @@ function UseCaseCatalogCard({
   )
 }
 
-function CatalogStat({
-  label,
-  value,
-  description,
+function ScenarioReadinessStrip({
+  items,
+  showDetails,
 }: {
-  label: string
-  value: number
-  description: string
+  items: ScoreboardItem[]
+  showDetails: boolean
 }) {
   return (
+    <div className="rounded-md border border-slate-200 bg-white p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Scenario readiness
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        {items.map((item) => (
+          <ReadinessMetric key={item.label} item={item} />
+        ))}
+      </div>
+      {showDetails ? (
+        <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+          {items.map((item) => (
+            <p key={item.label} className="text-xs leading-5 text-slate-600">
+              <span className="font-semibold text-slate-900">
+                {shortReadinessLabel(item.label)}:
+              </span>{" "}
+              {item.insight}
+            </p>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function ReadinessMetric({ item }: { item: ScoreboardItem }) {
+  const tone = getToneClasses(item.tone)
+  const width = `${Math.min(item.score, 100)}%`
+
+  return (
     <div
-      className="group relative rounded-md border border-slate-200 bg-white p-3 outline-none focus-visible:ring-2 focus-visible:ring-red-600"
-      tabIndex={0}
-      aria-label={`${label}: ${description}`}
-      title={description}
+      className="rounded-md border border-slate-200 bg-slate-50 p-2"
+      aria-label={`${item.label}: ${item.score}, target ${item.target}`}
+      title={item.insight}
     >
-      <div className="text-xs text-slate-500">{label}</div>
-      <div className="mt-1 text-xl font-semibold text-slate-950">{value}</div>
-      <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-56 -translate-x-1/2 rounded-md bg-slate-950 p-3 text-left text-xs leading-5 text-white shadow-lg group-hover:block group-focus-visible:block">
-        {description}
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs font-medium text-slate-600">
+          {shortReadinessLabel(item.label)}
+        </div>
+        <div className={cn("text-sm font-semibold", tone.text)}>
+          {item.score}
+        </div>
+      </div>
+      <div className="mt-2 h-1.5 rounded-full bg-white">
+        <div
+          className={cn("h-full rounded-full", tone.accent)}
+          style={{ width }}
+        />
       </div>
     </div>
   )
+}
+
+function shortReadinessLabel(label: string) {
+  return label
+    .replace(" depth", "")
+    .replace(" clarity", "")
+    .replace(" coverage", "")
 }
 
 function formatDate(value: string) {

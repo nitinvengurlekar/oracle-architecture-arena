@@ -1,16 +1,13 @@
 import {
   Blocks,
   BrainCircuit,
-  Database,
   MessageSquareText,
-  Search,
   ShieldCheck,
   Swords,
 } from "lucide-react"
 
 import { AnimatedPage } from "@/components/dashboard/animated-page"
 import { PageHeader } from "@/components/dashboard/page-header"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -36,16 +33,6 @@ const capabilityCards = [
     body: "Generates editable architecture blueprints from saved scenarios and Debate Arena recommendations.",
     icon: Blocks,
   },
-  {
-    title: "Persist reusable work",
-    body: "Stores scenarios and generated outputs in Oracle Autonomous Database so teams can return to prior work.",
-    icon: Database,
-  },
-  {
-    title: "Prepare for 26ai expansion",
-    body: "Sets up future RAG, vector search, database agents, and natural-language querying capabilities.",
-    icon: Search,
-  },
 ]
 
 const trialSteps = [
@@ -61,7 +48,6 @@ export default function AboutPage() {
   return (
     <AnimatedPage>
       <PageHeader
-        eyebrow="How to Get Started"
         title="Executive Architecture Decision Simulation"
         description="Oracle Architecture Arena is an AI-powered workbench for moving from incomplete customer context to competitive strategy, architecture debate, and reusable architecture outputs."
         actions={
@@ -85,7 +71,7 @@ export default function AboutPage() {
         </TabsList>
 
         <TabsContent value="what">
-          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {capabilityCards.map((card) => {
               const Icon = card.icon
 
@@ -95,14 +81,9 @@ export default function AboutPage() {
                   className="rounded-md border-0 bg-white shadow-sm ring-slate-200"
                 >
                   <CardHeader className="rounded-t-md">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="flex size-10 items-center justify-center rounded-md bg-red-50 text-red-700 ring-1 ring-red-100">
-                        <Icon className="size-5" />
-                      </span>
-                      <Badge variant="outline" className="rounded-md bg-slate-50">
-                        AI workbench
-                      </Badge>
-                    </div>
+                    <span className="flex size-10 items-center justify-center rounded-md bg-red-50 text-red-700 ring-1 ring-red-100">
+                      <Icon className="size-5" />
+                    </span>
                     <CardTitle className="pt-2 text-base font-semibold text-slate-950">
                       {card.title}
                     </CardTitle>
@@ -128,9 +109,6 @@ export default function AboutPage() {
                     Start with the SE Assist workflow
                   </CardTitle>
                 </div>
-                <Badge className="rounded-md bg-slate-950 text-white">
-                  6 steps
-                </Badge>
               </div>
             </CardHeader>
             <CardContent>
@@ -152,61 +130,74 @@ export default function AboutPage() {
         </TabsContent>
 
         <TabsContent value="flow">
-          <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-            <Card className="rounded-md border-0 bg-slate-950 text-white shadow-sm ring-slate-900">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <span className="flex size-10 items-center justify-center rounded-md bg-red-600 text-white">
-                    <Swords className="size-5" />
-                  </span>
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-300">
-                      Primary entry point
-                    </div>
-                    <CardTitle className="mt-1 text-xl font-semibold text-white">
-                      Competitive SE Assist
-                    </CardTitle>
+          <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
+            <CardHeader className="rounded-t-md border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-md bg-red-50 text-red-700 ring-1 ring-red-100">
+                  <ShieldCheck className="size-5" />
+                </span>
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                    Workbench flow
                   </div>
+                  <CardTitle className="mt-1 text-xl font-semibold text-slate-950">
+                    Customer signal to architecture output
+                  </CardTitle>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm leading-6 text-slate-300">
-                  The app is designed to begin with incomplete customer context.
-                  The SE Assistant and Discovery Agent infer likely priorities,
-                  expose gaps, and create the structured scenario used by the
-                  rest of the workbench.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <span className="flex size-10 items-center justify-center rounded-md bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
-                    <ShieldCheck className="size-5" />
-                  </span>
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Persistent decision path
-                    </div>
-                    <CardTitle className="mt-1 text-xl font-semibold text-slate-950">
-                      Scenario to debate to blueprint
-                    </CardTitle>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm leading-6 text-slate-600">
-                  Saved scenarios feed Debate Arena and Architecture Generator,
-                  then remain available in the catalog. This lets teams revisit
-                  prior use cases instead of recreating the same work for demos,
-                  reviews, and future 26ai retrieval workflows.
-                </p>
-              </CardContent>
-            </Card>
-          </section>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm leading-6 text-slate-600">
+                Start with incomplete customer context, turn it into a saved
+                scenario, test the decision in Debate Arena, then generate an
+                architecture blueprint from the same pursuit record.
+              </p>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <FlowStep
+                  icon={Swords}
+                  title="Competitive SE Assist"
+                  body="Infer priorities, expose discovery gaps, and create the field guidance."
+                />
+                <FlowStep
+                  icon={ShieldCheck}
+                  title="Saved Scenarios"
+                  body="Keep the pursuit context available for later review and reuse."
+                />
+                <FlowStep
+                  icon={BrainCircuit}
+                  title="Debate Arena"
+                  body="Compare Oracle, competitor, and neutral executive perspectives."
+                />
+                <FlowStep
+                  icon={Blocks}
+                  title="Architecture Generator"
+                  body="Turn the decision path into an editable architecture blueprint."
+                />
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </AnimatedPage>
+  )
+}
+
+function FlowStep({
+  icon: Icon,
+  title,
+  body,
+}: {
+  icon: typeof Swords
+  title: string
+  body: string
+}) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <span className="flex size-9 items-center justify-center rounded-md bg-white text-slate-700 ring-1 ring-slate-200">
+        <Icon className="size-4" />
+      </span>
+      <div className="mt-3 text-sm font-semibold text-slate-950">{title}</div>
+      <p className="mt-2 text-sm leading-6 text-slate-600">{body}</p>
+    </div>
   )
 }

@@ -5,16 +5,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import {
-  BrainCircuit,
   CircleHelp,
-  DatabaseZap,
   FileText,
-  Layers3,
   Loader2,
   MessageSquareQuote,
   Search,
   ShieldCheck,
-  Sparkles,
   Swords,
   Target,
   Trophy,
@@ -78,6 +74,10 @@ const discoveryConfidenceDescriptions = {
     "Customer priorities are confirmed, so the SE Assistant can provide firmer field guidance.",
 } satisfies Record<CompetitiveAssistInput["discoveryConfidence"], string>
 
+const autoManagedScenarioPrompts = new Set(
+  customerSignalChips.map((signal) => normalizePrompt(signal.input.prompt))
+)
+
 export function CompetitiveAssistWorkspace() {
   const pathname = usePathname()
   const router = useRouter()
@@ -92,7 +92,7 @@ export function CompetitiveAssistWorkspace() {
   const [brief, setBrief] = useState<CompetitiveAssistBrief>(() =>
     generateCompetitiveAssistBrief(customerSignalChips[0].input)
   )
-  const [generationMeta, setGenerationMeta] = useState<GenerationMeta>({
+  const [, setGenerationMeta] = useState<GenerationMeta>({
     mode: "mock",
     model: "Local assist engine",
     ragContext: [],
@@ -130,9 +130,11 @@ export function CompetitiveAssistWorkspace() {
             return
           }
 
+          const syncedTemplateInput = syncAutoScenarioPrompt(templateInput)
+
           setActiveSignalId("template")
-          setInput(templateInput)
-          setBrief(generateCompetitiveAssistBrief(templateInput))
+          setInput(syncedTemplateInput)
+          setBrief(generateCompetitiveAssistBrief(syncedTemplateInput))
           setGenerationMeta({
             mode: "mock",
             model: "Template starter",
@@ -197,14 +199,18 @@ export function CompetitiveAssistWorkspace() {
     setInput((current) => {
       const nextInput = { ...current, [key]: value }
 
-      setBrief(generateCompetitiveAssistBrief(nextInput))
+      const syncedInput = shouldSyncScenarioPrompt(key, current.prompt)
+        ? syncAutoScenarioPrompt(nextInput)
+        : nextInput
+
+      setBrief(generateCompetitiveAssistBrief(syncedInput))
       setGenerationMeta({
         mode: "mock",
         model: "Local assist preview",
         ragContext: [],
       })
 
-      return nextInput
+      return syncedInput
     })
     setActiveSignalId("custom")
     setCurrentUseCaseId(undefined)
@@ -344,11 +350,6 @@ export function CompetitiveAssistWorkspace() {
           <CardTitle className="pt-2 text-xl font-semibold text-slate-950">
             Build strategy from Customer Context
           </CardTitle>
-          <p className="text-sm leading-6 text-slate-600">
-            Use the SE Assistant and Discovery Agent to infer priorities,
-            identify Oracle positioning, and translate competitive context into
-            field guidance.
-          </p>
         </CardHeader>
 
         <CardContent className="space-y-5">
@@ -373,6 +374,27 @@ export function CompetitiveAssistWorkspace() {
               value="customer-scenario-analysis"
               className="space-y-5"
             >
+              <div>
+                <label
+                  htmlFor="customer-scenario"
+                  className="text-sm font-semibold text-slate-950"
+                >
+                  Customer scenario
+                </label>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Paste customer wording, account notes, or rough compete
+                  statement.
+                </p>
+                <Textarea
+                  id="customer-scenario"
+                  value={input.prompt}
+                  onChange={(event) =>
+                    updateInput("prompt", event.target.value)
+                  }
+                  className="mt-2 min-h-36 resize-none rounded-md bg-slate-50 text-sm"
+                />
+              </div>
+
               <div>
                 <div className="text-sm font-semibold text-slate-950">
                   Starter scenario
@@ -401,27 +423,6 @@ export function CompetitiveAssistWorkspace() {
                     })}
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="customer-scenario"
-                  className="text-sm font-semibold text-slate-950"
-                >
-                  Customer scenario
-                </label>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
-                  Paste customer wording, account notes, or rough compete
-                  statement.
-                </p>
-                <Textarea
-                  id="customer-scenario"
-                  value={input.prompt}
-                  onChange={(event) =>
-                    updateInput("prompt", event.target.value)
-                  }
-                  className="mt-2 min-h-36 resize-none rounded-md bg-slate-50 text-sm"
-                />
               </div>
 
               <div>
@@ -552,7 +553,7 @@ export function CompetitiveAssistWorkspace() {
       </Card>
 
       <div className="flex min-w-0 flex-col gap-4">
-        <AssistCommandBar brief={brief} isGenerating={isGenerating} />
+        <AssistCommandBar brief={brief} />
 
         <section className="grid items-stretch gap-4 lg:grid-cols-2">
           <ConsolePanel
@@ -597,12 +598,6 @@ export function CompetitiveAssistWorkspace() {
         <section>
           <BattleCardOutput brief={brief} />
         </section>
-
-        <WorkflowHandoffStrip
-          debateDescription={brief.feeds.debateArena}
-          architectureDescription={brief.feeds.architectureGenerator}
-          ragCount={generationMeta.ragContext.length}
-        />
       </div>
     </div>
   )
@@ -649,6 +644,61 @@ function isDiscoveryConfidence(
   return discoveryConfidenceLevels.includes(
     value as CompetitiveAssistInput["discoveryConfidence"]
   )
+}
+
+function shouldSyncScenarioPrompt(
+  key: keyof CompetitiveAssistInput,
+  prompt: string
+) {
+  return (
+    (key === "competitor" || key === "domain") &&
+    isAutoManagedScenarioPrompt(prompt)
+  )
+}
+
+function isAutoManagedScenarioPrompt(prompt: string) {
+  const normalizedPrompt = normalizePrompt(prompt)
+
+  return (
+    autoManagedScenarioPrompts.has(normalizedPrompt) ||
+    /^Customer is evaluating .+ for (data platform and lakehouse modernization|Oracle database modernization|AI\/ML platform strategy|a government or sovereign deployment)\.$/.test(
+      normalizedPrompt
+    )
+  )
+}
+
+function syncAutoScenarioPrompt(input: CompetitiveAssistInput) {
+  if (!isAutoManagedScenarioPrompt(input.prompt)) {
+    return input
+  }
+
+  return {
+    ...input,
+    prompt: createLensScenarioPrompt(input),
+  }
+}
+
+function normalizePrompt(prompt: string) {
+  return prompt.trim().replace(/\s+/g, " ")
+}
+
+function createLensScenarioPrompt({
+  competitor,
+  domain,
+}: Pick<CompetitiveAssistInput, "competitor" | "domain">) {
+  const competitorLabel =
+    competitor === "Other" ? "another competing option" : competitor
+
+  switch (domain) {
+    case "lakehouse-modernization":
+      return `Customer is evaluating ${competitorLabel} for data platform and lakehouse modernization.`
+    case "database-modernization":
+      return `Customer is evaluating ${competitorLabel} for Oracle database modernization.`
+    case "ai-ml-platform":
+      return `Customer is evaluating ${competitorLabel} for AI/ML platform strategy.`
+    case "sovereign-deployment":
+      return `Customer is evaluating ${competitorLabel} for a government or sovereign deployment.`
+  }
 }
 
 function filterCatalogForCompetitorAnalysis(
@@ -821,28 +871,23 @@ function CatalogStatusCard({
 
 function AssistCommandBar({
   brief,
-  isGenerating,
 }: {
   brief: CompetitiveAssistBrief
-  isGenerating: boolean
 }) {
+  const title =
+    brief.competitor && brief.domain
+      ? createLensScenarioPrompt({
+          competitor: brief.competitor,
+          domain: brief.domain,
+        })
+      : brief.prompt
+
   return (
     <Card className="rounded-md border-0 bg-slate-950 text-white shadow-sm ring-slate-900">
-      <CardContent className="grid gap-4 py-4 xl:grid-cols-[minmax(0,1fr)_minmax(260px,340px)] xl:items-stretch">
+      <CardContent className="py-5">
         <div className="min-w-0">
-          <div className="flex flex-wrap gap-2">
-            <Badge className="rounded-md bg-white text-slate-950">
-              {brief.competitor}
-            </Badge>
-            <Badge className="rounded-md bg-red-600 text-white">
-              {brief.discoveryConfidence} Discovery Agent confidence
-            </Badge>
-            <Badge className="rounded-md bg-white/10 text-white">
-              {isGenerating ? "Generating" : "Generated guidance"}
-            </Badge>
-          </div>
-          <h3 className="mt-3 text-lg font-semibold text-white">
-            {brief.prompt}
+          <h3 className="text-lg font-semibold text-white">
+            {title}
           </h3>
           <div className="mt-3 flex flex-wrap gap-2">
             {brief.customerSignals.map((signal) => (
@@ -855,42 +900,8 @@ function AssistCommandBar({
             ))}
           </div>
         </div>
-        <div className="grid min-w-0 gap-2 text-sm sm:grid-cols-2">
-          <ReadinessStat
-            label="Likely priorities"
-            value={brief.inferredPriorities.length}
-            description="Customer needs the SE Assistant inferred from the context. Treat them as hypotheses until the Discovery Agent validates them."
-          />
-          <ReadinessStat
-            label="Field guidance points"
-            value={brief.battleCardGuidance.length}
-            description="Concise battle-card recommendations the SE can use in a prep call or customer conversation."
-          />
-        </div>
       </CardContent>
     </Card>
-  )
-}
-
-function ReadinessStat({
-  label,
-  value,
-  description,
-}: {
-  label: string
-  value: number
-  description: string
-}) {
-  return (
-    <div
-      className="rounded-md border border-white/10 bg-white/10 p-3"
-      title={description}
-      aria-label={`${label}: ${description}`}
-    >
-      <div className="text-xs text-slate-300">{label}</div>
-      <div className="mt-1 text-2xl font-semibold text-white">{value}</div>
-      <p className="mt-2 text-xs leading-5 text-slate-300">{description}</p>
-    </div>
   )
 }
 
@@ -1001,11 +1012,11 @@ function BattleCardOutput({ brief }: { brief: CompetitiveAssistBrief }) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
         {rows.map((row) => (
           <div
             key={row.label}
-            className="rounded-md border border-slate-200 bg-slate-50 p-4"
+            className="border-b border-slate-200 pb-5 last:border-b-0 last:pb-0"
           >
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               {row.label}
@@ -1013,14 +1024,13 @@ function BattleCardOutput({ brief }: { brief: CompetitiveAssistBrief }) {
             <p className="mt-2 text-sm leading-6 text-slate-700">{row.value}</p>
           </div>
         ))}
-        <div className="rounded-md bg-slate-950 p-4 text-white">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <Sparkles className="size-4 text-red-300" />
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Concise field guidance
           </div>
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-3 space-y-3">
             {brief.battleCardGuidance.map((item) => (
-              <li key={item} className="text-sm leading-6 text-slate-100">
+              <li key={item} className="text-sm leading-6 text-slate-700">
                 {item}
               </li>
             ))}
@@ -1028,65 +1038,5 @@ function BattleCardOutput({ brief }: { brief: CompetitiveAssistBrief }) {
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-function WorkflowHandoffStrip({
-  debateDescription,
-  architectureDescription,
-  ragCount,
-}: {
-  debateDescription: string
-  architectureDescription: string
-  ragCount: number
-}) {
-  return (
-    <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
-      <CardContent className="grid gap-3 py-4 lg:grid-cols-3">
-        <HandoffStripItem
-          icon={BrainCircuit}
-          label="Debate Arena"
-          body={debateDescription}
-        />
-        <HandoffStripItem
-          icon={Layers3}
-          label="Architecture Generator"
-          body={architectureDescription}
-        />
-        <HandoffStripItem
-          icon={DatabaseZap}
-          label="Knowledge context"
-          body={
-            ragCount > 0
-              ? `${ragCount} retrieval references are attached to this use case.`
-              : "RAG context will attach after generation."
-          }
-        />
-      </CardContent>
-    </Card>
-  )
-}
-
-function HandoffStripItem({
-  icon: Icon,
-  label,
-  body,
-}: {
-  icon: LucideIcon
-  label: string
-  body: string
-}) {
-  return (
-    <div className="flex gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white text-slate-700 ring-1 ring-slate-200">
-        <Icon className="size-4" />
-      </span>
-      <div className="min-w-0">
-        <div className="text-sm font-semibold text-slate-950">{label}</div>
-        <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-600">
-          {body}
-        </p>
-      </div>
-    </div>
   )
 }
