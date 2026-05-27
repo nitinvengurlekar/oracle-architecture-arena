@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "rag:select-ai:plan": "node scripts/select-ai-rag-indexes.mjs plan",
+    "rag:select-ai:create": "node scripts/select-ai-rag-indexes.mjs create",
     "seed:starter-scenarios": "node scripts/seed-starter-scenarios.mjs"
   },
   "dependencies": {

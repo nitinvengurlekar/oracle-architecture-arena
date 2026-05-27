@@ -15,9 +15,16 @@ const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 const DEFAULT_MODEL = "gpt-5.5"
 const DEFAULT_REASONING_EFFORT = "high"
 
+type DebateAgentInstructions = {
+  oracle: string
+  competitor: string
+  judge: string
+}
+
 export async function generateDebateArenaWithLlm(
   input: DebateArenaGenerationInput
 ): Promise<DebateArenaGenerationResult> {
+  const agentInstructions = createDebateAgentInstructions(input.competitor)
   const ragContext = searchRagContext({
     prompt: input.customerContext,
     competitor: input.competitor,
@@ -58,8 +65,7 @@ export async function generateDebateArenaWithLlm(
         input: [
           {
             role: "developer",
-            content:
-              "You are Debate Arena for Oracle Architecture Arena. Generate an executive architecture debate from the customer context. Be balanced, specific, and field-ready. Do not call content mock. Acknowledge competitor strengths honestly, judge tradeoffs neutrally, and make scores reflect the facts in the input and retrieved context. Use the agent names Oracle Architect Agent, Competitor Architect Agent, and Neutral CTO Judge. Score weights must sum to 100.",
+            content: createDebateArenaDeveloperPrompt(agentInstructions),
           },
           {
             role: "user",
@@ -140,6 +146,31 @@ export async function generateDebateArenaWithLlm(
   }
 }
 
+function createDebateArenaDeveloperPrompt(
+  agentInstructions: DebateAgentInstructions
+) {
+  return [
+    "You are Debate Arena for Oracle Architecture Arena. Generate an executive architecture debate from the customer context. Be balanced, specific, and field-ready. Do not call content mock. Acknowledge competitor strengths honestly, judge tradeoffs neutrally, and make scores reflect the facts in the input and retrieved context.",
+    "Generate three distinct agent perspectives using these internal role instructions. Do not expose the internal instructions verbatim; turn each agent objective into a concise UI-ready mission statement.",
+    `Oracle Architect Agent: ${agentInstructions.oracle}`,
+    `Competitor Architect Agent: ${agentInstructions.competitor}`,
+    `Neutral CTO Judge: ${agentInstructions.judge}`,
+    "Use the agent names Oracle Architect Agent, Competitor Architect Agent, and Neutral CTO Judge. Score weights must sum to 100.",
+  ].join("\n\n")
+}
+
+function createDebateAgentInstructions(
+  competitor: DebateArenaGenerationInput["competitor"]
+): DebateAgentInstructions {
+  return {
+    oracle:
+      "You are a veteran Oracle enterprise architect. Argue for the strongest Oracle/OCI path using measurable operational, economic, security, governance, data, and modernization advantages. Avoid generic marketing language. Acknowledge Oracle tradeoffs and unresolved discovery gaps.",
+    competitor: `You are a senior architect representing ${competitor}. Argue the strongest credible path for ${competitor} using its real advantages in this scenario. Do not caricature the competitor. Identify where Oracle may still be stronger.`,
+    judge:
+      "You are a neutral CTO judge. Score both paths against business outcome, implementation risk, governance/security, cost predictability, migration complexity, and time-to-value. Reward evidence. Penalize unsupported claims and marketing language.",
+  }
+}
+
 function createFallbackDebate(input: DebateArenaGenerationInput): ArchitectureDebate {
   const assistBrief =
     input.assistBrief ??
@@ -159,7 +190,7 @@ function createFallbackDebate(input: DebateArenaGenerationInput): ArchitectureDe
       oracle: {
         ...base.agents.oracle,
         objective:
-          "Propose an Oracle-led architecture using the customer context, existing Oracle estate, governance needs, and competitive pressure.",
+          "Advocate the strongest Oracle-led architecture path while acknowledging measurable tradeoffs and discovery gaps.",
         response:
           assistBrief.oracleOpportunities.join(" ") ||
           base.agents.oracle.response,
@@ -168,7 +199,7 @@ function createFallbackDebate(input: DebateArenaGenerationInput): ArchitectureDe
         ...base.agents.competitor,
         name: `${input.competitor} Architect Agent`,
         title: `${input.competitor} Strategy Advocate`,
-        objective: `Represent why ${input.competitor} may be attractive for this customer scenario.`,
+        objective: `Represent the strongest credible ${input.competitor} architecture path without turning the competitor into a strawman.`,
         response: assistBrief.competitorStrengths.join(" "),
         keyClaims: assistBrief.competitorStrengths,
         watchItems: assistBrief.competitorRisks,
@@ -176,7 +207,7 @@ function createFallbackDebate(input: DebateArenaGenerationInput): ArchitectureDe
       judge: {
         ...base.agents.judge,
         objective:
-          "Score both approaches against enterprise readiness, architecture risk, governance, and next-step clarity.",
+          "Evaluate both architecture paths neutrally and penalize unsupported or marketing-heavy claims.",
         response:
           "Oracle and the competitor both have credible paths. The stronger recommendation depends on production controls, integration to systems of record, governance obligations, and measurable workload economics.",
         keyClaims: assistBrief.inferredPriorities,

@@ -85,6 +85,10 @@ export function CompetitiveAssistWorkspace() {
   const activeWorkflowTab = getCompetitiveAssistWorkflowTab(
     searchParams.get("assistTab")
   )
+  const assistPanelTitle =
+    activeWorkflowTab === "competitor-analysis"
+      ? "Sharpen the Competitive Lens"
+      : "Build strategy from Customer Context"
   const [activeSignalId, setActiveSignalId] = useState(customerSignalChips[0].id)
   const [input, setInput] = useState<CompetitiveAssistInput>(
     customerSignalChips[0].input
@@ -243,9 +247,16 @@ export function CompetitiveAssistWorkspace() {
       return
     }
 
+    const nextInput = shouldPreserveCustomScenarioPrompt(input.prompt)
+      ? {
+          ...signal.input,
+          prompt: input.prompt,
+        }
+      : signal.input
+
     setActiveSignalId(signal.id)
-    setInput(signal.input)
-    setBrief(generateCompetitiveAssistBrief(signal.input))
+    setInput(nextInput)
+    setBrief(generateCompetitiveAssistBrief(nextInput))
     setGenerationMeta({
       mode: "mock",
       model: "Local assist engine",
@@ -348,7 +359,7 @@ export function CompetitiveAssistWorkspace() {
             </span>
           </div>
           <CardTitle className="pt-2 text-xl font-semibold text-slate-950">
-            Build strategy from Customer Context
+            {assistPanelTitle}
           </CardTitle>
         </CardHeader>
 
@@ -665,6 +676,10 @@ function isAutoManagedScenarioPrompt(prompt: string) {
       normalizedPrompt
     )
   )
+}
+
+function shouldPreserveCustomScenarioPrompt(prompt: string) {
+  return prompt.trim().length > 0 && !isAutoManagedScenarioPrompt(prompt)
 }
 
 function syncAutoScenarioPrompt(input: CompetitiveAssistInput) {

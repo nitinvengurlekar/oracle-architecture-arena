@@ -100,7 +100,7 @@ export function WhiteboardStudioWorkspace({
   const [aiStatus, setAiStatus] = useState(aiHook.status)
   const [sessionTitle, setSessionTitle] = useState("Architecture sketch session")
   const [currentSessionId, setCurrentSessionId] = useState<string>()
-  const [selectedSessionId, setSelectedSessionId] = useState<string>()
+  const [selectedSessionId, setSelectedSessionId] = useState("")
   const [sessions, setSessions] = useState<WhiteboardSessionSummary[]>([])
   const [persistenceStatus, setPersistenceStatus] = useState(
     "Not saved to the database yet"

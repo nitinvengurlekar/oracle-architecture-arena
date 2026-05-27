@@ -132,6 +132,13 @@ export interface RagReference {
   sourceType: RagSourceType
   excerpt: string
   score: number
+  retrievedFrom?: "local-corpus" | "adb-vector" | "select-ai-rag"
+  knowledgeLayer?: "legacy" | "oracle-public" | "oracle-private" | "scenario"
+  classification?: "public" | "internal" | "confidential" | "restricted"
+  sourceUri?: string
+  documentId?: string
+  chunkId?: string
+  vectorIndexName?: string
 }
 
 export interface CompetitiveAssistGenerationResult {

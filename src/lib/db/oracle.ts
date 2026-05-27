@@ -21,6 +21,8 @@ type OracleDbConfig = {
   poolMin: number
   poolMax: number
   poolIncrement: number
+  poolQueueTimeout: number
+  usePool: boolean
 }
 
 type OracleDbConfigStatus =
@@ -58,9 +60,11 @@ export type OracleDatabaseHealth = {
     missingFiles: string[]
   }
   pool: {
+    enabled: boolean
     min: number
     max: number
     increment: number
+    queueTimeout: number
   }
   database?: {
     currentUser?: string
@@ -105,8 +109,11 @@ export async function withOracleConnection<T>(
     )
   }
 
-  const pool = await getOraclePool(configStatus.config)
-  const connection = await pool.getConnection()
+  configureOracleDriver(configStatus.config)
+
+  const connection = configStatus.config.usePool
+    ? await getPooledConnection(configStatus.config)
+    : await oracledb.getConnection(getStandaloneConnectionOptions(configStatus.config))
 
   try {
     return await operation(connection)
@@ -133,8 +140,11 @@ export async function checkOracleDatabaseHealth(): Promise<OracleDatabaseHealth>
   }
 
   try {
-    const pool = await getOraclePool(configStatus.config)
-    const connection = await pool.getConnection()
+    configureOracleDriver(configStatus.config)
+
+    const connection = configStatus.config.usePool
+      ? await getPooledConnection(configStatus.config)
+      : await oracledb.getConnection(getStandaloneConnectionOptions(configStatus.config))
 
     try {
       const result = await connection.execute<HealthQueryRow>(
@@ -179,8 +189,7 @@ export async function checkOracleDatabaseHealth(): Promise<OracleDatabaseHealth>
 
 async function getOraclePool(config: OracleDbConfig) {
   if (!poolPromise) {
-    oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT
-    initializeOracleClient(config)
+    configureOracleDriver(config)
 
     poolPromise = oracledb
       .createPool(getPoolOptions(config))
@@ -191,6 +200,17 @@ async function getOraclePool(config: OracleDbConfig) {
   }
 
   return poolPromise
+}
+
+async function getPooledConnection(config: OracleDbConfig) {
+  const pool = await getOraclePool(config)
+
+  return pool.getConnection()
+}
+
+function configureOracleDriver(config: OracleDbConfig) {
+  oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT
+  initializeOracleClient(config)
 }
 
 function initializeOracleClient(config: OracleDbConfig) {
@@ -220,7 +240,7 @@ function getPoolOptions(config: OracleDbConfig): oracledb.PoolAttributes {
         poolMin: config.poolMin,
         poolMax: config.poolMax,
         poolIncrement: config.poolIncrement,
-        queueTimeout: 5000,
+        queueTimeout: config.poolQueueTimeout,
   }
 
   if (config.driverMode === "thick") {
@@ -237,6 +257,29 @@ function getPoolOptions(config: OracleDbConfig): oracledb.PoolAttributes {
   }
 }
 
+function getStandaloneConnectionOptions(
+  config: OracleDbConfig
+): oracledb.ConnectionAttributes {
+  const sharedOptions: oracledb.ConnectionAttributes = {
+    user: config.user,
+    password: config.password,
+    connectString: config.connectString,
+  }
+
+  if (config.driverMode === "thick") {
+    return sharedOptions
+  }
+
+  return {
+    ...sharedOptions,
+    configDir: config.configDir,
+    walletLocation: config.walletLocation,
+    walletPassword: config.walletPassword,
+    connectTimeout: 30,
+    transportConnectTimeout: 30,
+  }
+}
+
 function readOracleDbConfig(): OracleDbConfigStatus {
   const driverMode = readDriverMode(readEnv("ORACLE_DB_DRIVER_MODE"))
   const user = readEnv("ORACLE_DB_USER")
@@ -246,6 +289,7 @@ function readOracleDbConfig(): OracleDbConfigStatus {
   const configDir = readEnv("ORACLE_DB_CONFIG_DIR") || walletLocation
   const walletPassword = readEnv("ORACLE_DB_WALLET_PASSWORD")
   const clientLibDir = readEnv("ORACLE_CLIENT_LIB_DIR")
+  const usePool = readBooleanEnv("ORACLE_DB_USE_POOL", true)
   const requiredEnvironment: Array<[string, string | undefined]> = [
     ["ORACLE_DB_USER", user],
     ["ORACLE_DB_PASSWORD", password],
@@ -268,6 +312,8 @@ function readOracleDbConfig(): OracleDbConfigStatus {
     poolMin: readNumberEnv("ORACLE_DB_POOL_MIN", 1),
     poolMax: readNumberEnv("ORACLE_DB_POOL_MAX", 4),
     poolIncrement: readNumberEnv("ORACLE_DB_POOL_INCREMENT", 1),
+    poolQueueTimeout: readNumberEnv("ORACLE_DB_POOL_QUEUE_TIMEOUT", 30000),
+    usePool,
   }
   const missingWalletFiles = getMissingWalletFiles(config)
 
@@ -349,10 +395,22 @@ function getWalletHealth(
 
 function getPoolHealth(config?: Partial<OracleDbConfig>) {
   return {
+    enabled: config?.usePool ?? true,
     min: config?.poolMin ?? 1,
     max: config?.poolMax ?? 4,
     increment: config?.poolIncrement ?? 1,
+    queueTimeout: config?.poolQueueTimeout ?? 30000,
   }
+}
+
+function readBooleanEnv(name: string, fallback: boolean) {
+  const rawValue = readEnv(name)?.toLowerCase()
+
+  if (!rawValue) {
+    return fallback
+  }
+
+  return ["1", "true", "yes", "on"].includes(rawValue)
 }
 
 function getConnectStringKind(value: string | undefined) {

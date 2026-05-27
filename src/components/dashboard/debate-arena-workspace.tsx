@@ -370,7 +370,7 @@ function DebateControls({
             Use case context
           </div>
           <Select
-            value={selectedUseCaseId || undefined}
+            value={selectedUseCaseId}
             onValueChange={onSelectUseCase}
           >
             <SelectTrigger className="mt-2 w-full rounded-md bg-white">

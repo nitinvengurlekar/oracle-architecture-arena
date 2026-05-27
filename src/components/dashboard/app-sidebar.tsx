@@ -150,7 +150,7 @@ function SidebarNavigationItem({
       </Link>
 
       {item.title === "Competitive SE Assist" && isActive ? (
-        <div className="ml-7 mt-2 space-y-1 border-l border-slate-200 pl-3">
+        <div className="mb-5 ml-7 mt-2 space-y-1 border-l border-slate-200 pl-3">
           {competitiveAssistWorkflowTabs.map((tab) => {
             const isTabActive = activeAssistTab === tab.id
 

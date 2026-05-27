@@ -3,7 +3,7 @@ import {
   competitiveAssistJsonSchema,
 } from "@/lib/competitive-assist-contract"
 import { generateCompetitiveAssistBrief } from "@/lib/competitive-assist"
-import { searchRagContext } from "@/lib/rag"
+import { retrieveCompetitiveAssistRagContext } from "@/lib/rag/retrieve"
 import type {
   CompetitiveAssistGenerationResult,
   CompetitiveAssistInput,
@@ -15,7 +15,7 @@ const DEFAULT_MODEL = "gpt-5.4-mini"
 export async function generateCompetitiveAssistWithLlm(
   input: CompetitiveAssistInput
 ): Promise<CompetitiveAssistGenerationResult> {
-  const ragContext = searchRagContext(input)
+  const ragContext = await retrieveCompetitiveAssistRagContext(input)
   const fallbackBrief = generateCompetitiveAssistBrief(input)
   const apiKey = process.env.OPENAI_API_KEY?.trim()
   const model = process.env.OPENAI_MODEL?.trim() || DEFAULT_MODEL

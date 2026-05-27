@@ -17,6 +17,19 @@ export const ragReferenceSchema = z
     ]),
     excerpt: z.string().trim().min(1),
     score: z.number(),
+    retrievedFrom: z
+      .enum(["local-corpus", "adb-vector", "select-ai-rag"])
+      .optional(),
+    knowledgeLayer: z
+      .enum(["legacy", "oracle-public", "oracle-private", "scenario"])
+      .optional(),
+    classification: z
+      .enum(["public", "internal", "confidential", "restricted"])
+      .optional(),
+    sourceUri: z.string().trim().min(1).optional(),
+    documentId: z.string().trim().min(1).optional(),
+    chunkId: z.string().trim().min(1).optional(),
+    vectorIndexName: z.string().trim().min(1).optional(),
   })
   .strict()
 
