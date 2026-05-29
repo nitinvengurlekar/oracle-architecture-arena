@@ -6,6 +6,7 @@ import { withOracleConnection } from "@/lib/db/oracle"
 import type {
   CompetitiveAssistInput,
   RagReference,
+  RagSourceLink,
   RagSourceType,
   StrategyDomain,
 } from "@/types/workbench"
@@ -30,7 +31,14 @@ type SelectAiResponseRow = {
   RESPONSE?: string | null
 }
 
+type SelectAiNarration = {
+  excerpt: string
+  sourceLinks: RagSourceLink[]
+}
+
 const DEFAULT_RAG_LIMIT = 5
+const MAX_SELECT_AI_EXCERPT_LENGTH = 1800
+const MAX_SELECT_AI_SOURCE_LINKS = 10
 
 export async function searchSelectAiRagContext(
   input: CompetitiveAssistInput,
@@ -49,22 +57,31 @@ export async function searchSelectAiRagContext(
   const references: RagReference[] = []
 
   for (const index of indexes) {
-    const excerpt = await narrateFromVectorIndex(index, input)
+    const narration = await narrateFromVectorIndex(index, input)
 
-    if (!excerpt) {
+    if (!narration) {
       continue
     }
+
+    const primarySource = narration.sourceLinks[0]
 
     references.push({
       id: `select-ai:${index.INDEX_NAME}`,
       title: index.DISPLAY_NAME,
       sourceType: index.SOURCE_TYPE,
-      excerpt,
+      excerpt: narration.excerpt,
       score: scoreVectorIndex(index, input),
       retrievedFrom: "select-ai-rag",
       knowledgeLayer: index.KNOWLEDGE_LAYER,
       classification: index.CLASSIFICATION,
       vectorIndexName: index.INDEX_NAME,
+      ...(primarySource
+        ? {
+            sourceUri: primarySource.uri,
+            sourceLinks: narration.sourceLinks,
+            documentId: primarySource.title,
+          }
+        : {}),
     })
   }
 
@@ -178,6 +195,7 @@ async function narrateFromVectorIndex(
     "Return only concise retrieved context for an Oracle sales engineering assistant.",
     "Focus on factual product, architecture, competitive, sovereignty, and government-sector relevance.",
     "Do not generate a recommendation or sales brief.",
+    "When available, end with a Sources section with each cited document as '- title (url)'.",
     `Customer signal: ${input.prompt}`,
     `Competitor: ${input.competitor}`,
     `Strategy domain: ${input.domain}`,
@@ -209,7 +227,7 @@ async function narrateFromVectorIndex(
       }
     )
 
-    return normalizeSelectAiExcerpt(result.rows?.[0]?.RESPONSE)
+    return normalizeSelectAiNarration(result.rows?.[0]?.RESPONSE)
   })
 }
 
@@ -238,7 +256,9 @@ function scoreVectorIndex(
   return score
 }
 
-function normalizeSelectAiExcerpt(value: string | null | undefined) {
+function normalizeSelectAiNarration(
+  value: string | null | undefined
+): SelectAiNarration | undefined {
   if (!value) {
     return undefined
   }
@@ -252,5 +272,82 @@ function normalizeSelectAiExcerpt(value: string | null | undefined) {
     return undefined
   }
 
-  return trimmed.length > 1800 ? `${trimmed.slice(0, 1797)}...` : trimmed
+  const sourceLinks = extractSelectAiSourceLinks(trimmed)
+  const excerpt = stripSelectAiSources(trimmed) || trimmed
+
+  return {
+    excerpt: truncateSelectAiExcerpt(excerpt),
+    sourceLinks,
+  }
+}
+
+function extractSelectAiSourceLinks(value: string): RagSourceLink[] {
+  const links = new Map<string, RagSourceLink>()
+
+  for (const line of value.split("\n")) {
+    const uriMatch = line.match(/https?:\/\/[^\s)]+/i)
+
+    if (!uriMatch) {
+      continue
+    }
+
+    const uri = trimSourceUri(uriMatch[0])
+
+    if (!uri || links.has(uri)) {
+      continue
+    }
+
+    const title =
+      normalizeSourceTitle(line.slice(0, uriMatch.index)) || titleFromUri(uri)
+
+    links.set(uri, { title, uri })
+  }
+
+  return Array.from(links.values()).slice(0, MAX_SELECT_AI_SOURCE_LINKS)
+}
+
+function trimSourceUri(value: string) {
+  return value.replace(/[),.;]+$/g, "").trim()
+}
+
+function normalizeSourceTitle(value: string) {
+  const title = value
+    .replace(/\bSources?:\s*/i, "")
+    .replace(/^\s*(?:[-*]|\d+[.)])\s*/, "")
+    .replace(/[(:\-\s]+$/g, "")
+    .trim()
+
+  return title || undefined
+}
+
+function titleFromUri(uri: string) {
+  try {
+    const pathname = new URL(uri).pathname
+    const filename = pathname.split("/").filter(Boolean).pop()
+
+    return filename ? decodeURIComponent(filename) : "Retrieved source document"
+  } catch {
+    return "Retrieved source document"
+  }
+}
+
+function stripSelectAiSources(value: string) {
+  const lines = value.split("\n")
+  const sourceStart = lines.findIndex(isSourcesHeading)
+
+  if (sourceStart === -1) {
+    return value
+  }
+
+  return lines.slice(0, sourceStart).join("\n").trim()
+}
+
+function isSourcesHeading(value: string) {
+  return /^Sources?:\s*$/i.test(value.trim().replace(/\*/g, ""))
+}
+
+function truncateSelectAiExcerpt(value: string) {
+  return value.length > MAX_SELECT_AI_EXCERPT_LENGTH
+    ? `${value.slice(0, MAX_SELECT_AI_EXCERPT_LENGTH - 3)}...`
+    : value
 }

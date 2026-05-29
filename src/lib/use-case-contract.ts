@@ -27,6 +27,16 @@ export const ragReferenceSchema = z
       .enum(["public", "internal", "confidential", "restricted"])
       .optional(),
     sourceUri: z.string().trim().min(1).optional(),
+    sourceLinks: z
+      .array(
+        z
+          .object({
+            title: z.string().trim().min(1),
+            uri: z.string().trim().min(1),
+          })
+          .strict()
+      )
+      .optional(),
     documentId: z.string().trim().min(1).optional(),
     chunkId: z.string().trim().min(1).optional(),
     vectorIndexName: z.string().trim().min(1).optional(),

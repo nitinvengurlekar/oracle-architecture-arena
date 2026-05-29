@@ -126,6 +126,11 @@ export interface RagDocument {
   excerpt: string
 }
 
+export interface RagSourceLink {
+  title: string
+  uri: string
+}
+
 export interface RagReference {
   id: string
   title: string
@@ -136,6 +141,7 @@ export interface RagReference {
   knowledgeLayer?: "legacy" | "oracle-public" | "oracle-private" | "scenario"
   classification?: "public" | "internal" | "confidential" | "restricted"
   sourceUri?: string
+  sourceLinks?: RagSourceLink[]
   documentId?: string
   chunkId?: string
   vectorIndexName?: string

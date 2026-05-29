@@ -4,7 +4,7 @@ import {
   architectureDebateSchema,
 } from "@/lib/debate-arena-contract"
 import { generateCompetitiveAssistBrief } from "@/lib/competitive-assist"
-import { searchRagContext } from "@/lib/rag"
+import { retrieveCompetitiveAssistRagContext } from "@/lib/rag/retrieve"
 import type {
   ArchitectureDebate,
   DebateArenaGenerationInput,
@@ -25,7 +25,7 @@ export async function generateDebateArenaWithLlm(
   input: DebateArenaGenerationInput
 ): Promise<DebateArenaGenerationResult> {
   const agentInstructions = createDebateAgentInstructions(input.competitor)
-  const ragContext = searchRagContext({
+  const ragContext = await retrieveCompetitiveAssistRagContext({
     prompt: input.customerContext,
     competitor: input.competitor,
     domain: input.domain,
