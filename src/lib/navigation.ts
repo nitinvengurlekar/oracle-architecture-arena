@@ -2,11 +2,6 @@ import type { NavigationItem } from "@/types/workbench"
 
 export const dashboardNavigation = [
   {
-    title: "How to Get Started",
-    href: "/about",
-    description: "What this workbench does",
-  },
-  {
     title: "Competitive SE Assist",
     href: "/competitive-se-assist",
     description: "Battle-card guidance from incomplete signals",
@@ -17,14 +12,14 @@ export const dashboardNavigation = [
     description: "Multi-agent strategy review",
   },
   {
-    title: "Scenarios",
-    href: "/scenarios",
-    description: "Saved use case catalog",
-  },
-  {
     title: "Architecture Generator",
     href: "/architecture-generator",
     description: "Blueprint and implementation draft",
+  },
+  {
+    title: "Scenarios",
+    href: "/scenarios",
+    description: "Saved use case catalog",
   },
   {
     title: "Whiteboard Studio",
@@ -35,6 +30,11 @@ export const dashboardNavigation = [
     title: "Dashboard",
     href: "/",
     description: "Workbench overview",
+  },
+  {
+    title: "About",
+    href: "/about",
+    description: "Stack and implementation notes",
   },
 ] satisfies NavigationItem[]
 

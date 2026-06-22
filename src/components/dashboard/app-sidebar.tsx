@@ -4,7 +4,6 @@ import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import {
   Blocks,
-  Bot,
   BrainCircuit,
   ClipboardList,
   DatabaseZap,
@@ -22,7 +21,7 @@ import {
 import { cn } from "@/lib/utils"
 
 const navigationIcons = {
-  "How to Get Started": Info,
+  About: Info,
   Dashboard: LayoutDashboard,
   Scenarios: ClipboardList,
   "Competitive SE Assist": Swords,
@@ -38,10 +37,10 @@ export function AppSidebar() {
     searchParams.get("assistTab")
   )
   const primaryNavigation = dashboardNavigation.filter(
-    (item) => item.title !== "Dashboard"
+    (item) => item.title !== "Dashboard" && item.title !== "About"
   )
   const overviewNavigation = dashboardNavigation.filter(
-    (item) => item.title === "Dashboard"
+    (item) => item.title === "Dashboard" || item.title === "About"
   )
 
   return (
@@ -90,17 +89,6 @@ export function AppSidebar() {
           ))}
         </div>
       </nav>
-
-      <div className="m-3 rounded-md border border-slate-200 bg-slate-50 p-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
-          <Bot className="size-4 text-red-600" />
-          SE Assist signal
-        </div>
-        <p className="mt-2 text-xs leading-5 text-slate-600">
-          Incomplete customer inputs are routed through discovery inference before
-          entering the debate and architecture flows.
-        </p>
-      </div>
     </aside>
   )
 }

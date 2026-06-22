@@ -1,203 +1,202 @@
+import type { LucideIcon } from "lucide-react"
 import {
   Blocks,
-  BrainCircuit,
-  MessageSquareText,
+  Bot,
+  Code2,
+  Database,
+  GitBranch,
+  Layers3,
+  ServerCog,
   ShieldCheck,
-  Swords,
 } from "lucide-react"
 
 import { AnimatedPage } from "@/components/dashboard/animated-page"
 import { PageHeader } from "@/components/dashboard/page-header"
-import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-const capabilityCards = [
+const stackSections = [
   {
-    title: "Turn incomplete signals into guidance",
-    body: "Helps sales engineers and architects convert partial customer context into structured strategy guidance.",
-    icon: MessageSquareText,
+    title: "Application framework",
+    eyebrow: "Frontend runtime",
+    icon: Code2,
+    items: [
+      "Next.js 16.2.6 App Router",
+      "React 19.2.4 client components",
+      "TypeScript with strict component and data contracts",
+      "Next build/dev workflow with Turbopack",
+    ],
   },
   {
-    title: "Generate competitive field output",
-    body: "Produces discovery questions, Oracle positioning, competitor strengths, risks, talk tracks, and battle-card guidance.",
-    icon: Swords,
+    title: "Interface system",
+    eyebrow: "UI composition",
+    icon: Layers3,
+    items: [
+      "Tailwind CSS 4 utility styling",
+      "Radix UI and shadcn-style primitives",
+      "Lucide React iconography",
+      "Framer Motion for page transitions",
+    ],
   },
   {
-    title: "Run an architecture debate",
-    body: "Compares three perspectives: Oracle Architect Agent, Competitor Architect Agent, and Neutral CTO Judge.",
-    icon: BrainCircuit,
-  },
-  {
-    title: "Create blueprint recommendations",
-    body: "Generates editable architecture blueprints from saved scenarios and Debate Arena recommendations.",
+    title: "Workbench canvases",
+    eyebrow: "Interactive surfaces",
     icon: Blocks,
+    items: [
+      "React Flow for generated architecture diagrams",
+      "tldraw for Whiteboard Studio sketching",
+      "Editable node cards and inspector panels",
+      "Saved workbench outputs loaded through dashboard routes",
+    ],
+  },
+  {
+    title: "AI orchestration",
+    eyebrow: "Generation layer",
+    icon: Bot,
+    items: [
+      "OpenAI Responses API for structured workbench generation",
+      "Role-specific Debate Arena agent instructions",
+      "JSON schema output contracts validated before display",
+      "Local fallback generation when live model calls are unavailable",
+    ],
+  },
+  {
+    title: "Data and persistence",
+    eyebrow: "Storage layer",
+    icon: Database,
+    items: [
+      "Oracle Database / ADB connectivity through node-oracledb 6.10.0",
+      "Route handlers under src/app/api for saved scenarios and generated outputs",
+      "Zod contracts for request and response validation",
+      "Seeded fixtures and local corpus data for starter content",
+    ],
+  },
+  {
+    title: "Operations",
+    eyebrow: "Project workflow",
+    icon: ServerCog,
+    items: [
+      "npm scripts for dev, lint, build, start, and seeding",
+      "Environment-based configuration through local and production env files",
+      "Select AI / RAG index helper scripts for structural work",
+      "VM deployment path using the same parent repo build output",
+    ],
+  },
+] satisfies StackSection[]
+
+const implementationNotes = [
+  {
+    title: "Single source-of-truth repo",
+    body: "The application code lives in the parent project root. The ui and structural folders are workstream instruction lanes, not separate app roots.",
+    icon: GitBranch,
+  },
+  {
+    title: "Structured before rendered",
+    body: "Generated assists, debates, blueprints, and saved records pass through typed contracts before the UI presents them.",
+    icon: ShieldCheck,
   },
 ]
 
-const trialSteps = [
-  "Open Competitive SE Assist to enter a customer situation or load an existing scenario.",
-  "Generate a field assist to create discovery guidance and battle-card style output.",
-  "Open Scenarios to browse existing sample customer scenarios and saved work.",
-  "Open Debate Arena, select the same scenario, and generate a debate review.",
-  "Open Architecture Generator, select the scenario, and generate an architecture blueprint.",
-  "Revisit Scenarios later to find saved use cases and generated outputs.",
-]
+type StackSection = {
+  title: string
+  eyebrow: string
+  icon: LucideIcon
+  items: string[]
+}
 
 export default function AboutPage() {
   return (
     <AnimatedPage>
       <PageHeader
-        title="Executive Architecture Decision Simulation"
-        description="Oracle Architecture Arena is an AI-powered workbench for moving from incomplete customer context to competitive strategy, architecture debate, and reusable architecture outputs."
-        actions={
-          <Button asChild className="bg-red-600 text-white hover:bg-red-700">
-            <a href="/competitive-se-assist">Start with SE Assist</a>
-          </Button>
-        }
+        title="About"
+        description="Draft stack summary for the Oracle Architecture Arena workbench."
       />
 
-      <Tabs defaultValue="what" className="gap-4">
-        <TabsList className="w-full justify-start rounded-md bg-white p-1 shadow-sm ring-1 ring-slate-200 md:w-fit">
-          <TabsTrigger value="what" className="px-4 py-2">
-            What it does
-          </TabsTrigger>
-          <TabsTrigger value="try" className="px-4 py-2">
-            How to try it
-          </TabsTrigger>
-          <TabsTrigger value="flow" className="px-4 py-2">
-            Workbench flow
-          </TabsTrigger>
-        </TabsList>
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid gap-4 md:grid-cols-2">
+          {stackSections.map((section) => (
+            <StackCard key={section.title} section={section} />
+          ))}
+        </div>
 
-        <TabsContent value="what">
-          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {capabilityCards.map((card) => {
-              const Icon = card.icon
-
-              return (
-                <Card
-                  key={card.title}
-                  className="rounded-md border-0 bg-white shadow-sm ring-slate-200"
-                >
-                  <CardHeader className="rounded-t-md">
-                    <span className="flex size-10 items-center justify-center rounded-md bg-red-50 text-red-700 ring-1 ring-red-100">
-                      <Icon className="size-5" />
-                    </span>
-                    <CardTitle className="pt-2 text-base font-semibold text-slate-950">
-                      {card.title}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm leading-6 text-slate-600">{card.body}</p>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </section>
-        </TabsContent>
-
-        <TabsContent value="try">
-          <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
-            <CardHeader className="rounded-t-md border-b border-slate-200">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-red-700">
-                    Recommended first run
-                  </div>
-                  <CardTitle className="mt-1 text-xl font-semibold text-slate-950">
-                    Start with the SE Assist workflow
-                  </CardTitle>
-                </div>
+        <aside className="space-y-4">
+          <Card className="rounded-md border-0 bg-slate-950 text-white shadow-sm">
+            <CardHeader className="rounded-t-md border-b border-white/10">
+              <div className="text-xs font-semibold uppercase tracking-wide text-red-300">
+                Review draft
               </div>
+              <CardTitle className="mt-1 text-xl font-semibold">
+                Stack description to confirm
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 md:grid-cols-2">
-                {trialSteps.map((step, index) => (
-                  <div
-                    key={step}
-                    className="flex gap-3 rounded-md border border-slate-200 bg-slate-50 p-4"
-                  >
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-red-600 text-sm font-semibold text-white">
-                      {index + 1}
-                    </span>
-                    <p className="text-sm leading-6 text-slate-700">{step}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="flow">
-          <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
-            <CardHeader className="rounded-t-md border-b border-slate-200">
-              <div className="flex items-center gap-3">
-                <span className="flex size-10 items-center justify-center rounded-md bg-red-50 text-red-700 ring-1 ring-red-100">
-                  <ShieldCheck className="size-5" />
-                </span>
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-red-700">
-                    Workbench flow
-                  </div>
-                  <CardTitle className="mt-1 text-xl font-semibold text-slate-950">
-                    Customer signal to architecture output
-                  </CardTitle>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm leading-6 text-slate-600">
-                Start with incomplete customer context, turn it into a saved
-                scenario, test the decision in Debate Arena, then generate an
-                architecture blueprint from the same pursuit record.
+            <CardContent className="space-y-3 text-sm leading-6 text-slate-300">
+              <p>
+                This page is intended to describe what the workbench is built
+                on, not replace technical deployment notes.
               </p>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <FlowStep
-                  icon={Swords}
-                  title="Competitive SE Assist"
-                  body="Infer priorities, expose discovery gaps, and create the field guidance."
-                />
-                <FlowStep
-                  icon={ShieldCheck}
-                  title="Saved Scenarios"
-                  body="Keep the pursuit context available for later review and reuse."
-                />
-                <FlowStep
-                  icon={BrainCircuit}
-                  title="Debate Arena"
-                  body="Compare Oracle, competitor, and neutral executive perspectives."
-                />
-                <FlowStep
-                  icon={Blocks}
-                  title="Architecture Generator"
-                  body="Turn the decision path into an editable architecture blueprint."
-                />
-              </div>
+              <p>
+                The wording should stay executive-readable while still naming
+                the core implementation choices.
+              </p>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+
+          {implementationNotes.map((note) => {
+            const Icon = note.icon
+
+            return (
+              <Card
+                key={note.title}
+                className="rounded-md border-0 bg-white shadow-sm ring-slate-200"
+              >
+                <CardContent className="p-4">
+                  <span className="flex size-10 items-center justify-center rounded-md bg-red-50 text-red-700 ring-1 ring-red-100">
+                    <Icon className="size-5" />
+                  </span>
+                  <div className="mt-3 text-sm font-semibold text-slate-950">
+                    {note.title}
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {note.body}
+                  </p>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </aside>
+      </section>
     </AnimatedPage>
   )
 }
 
-function FlowStep({
-  icon: Icon,
-  title,
-  body,
-}: {
-  icon: typeof Swords
-  title: string
-  body: string
-}) {
+function StackCard({ section }: { section: StackSection }) {
+  const Icon = section.icon
+
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-      <span className="flex size-9 items-center justify-center rounded-md bg-white text-slate-700 ring-1 ring-slate-200">
-        <Icon className="size-4" />
-      </span>
-      <div className="mt-3 text-sm font-semibold text-slate-950">{title}</div>
-      <p className="mt-2 text-sm leading-6 text-slate-600">{body}</p>
-    </div>
+    <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
+      <CardHeader className="rounded-t-md border-b border-slate-200">
+        <div className="flex items-start justify-between gap-3">
+          <span className="flex size-10 items-center justify-center rounded-md bg-red-50 text-red-700 ring-1 ring-red-100">
+            <Icon className="size-5" />
+          </span>
+          <Badge variant="outline" className="rounded-md bg-slate-50">
+            {section.eyebrow}
+          </Badge>
+        </div>
+        <CardTitle className="pt-2 text-lg font-semibold text-slate-950">
+          {section.title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-2">
+          {section.items.map((item) => (
+            <li key={item} className="flex gap-2 text-sm leading-6 text-slate-600">
+              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-red-600" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   )
 }

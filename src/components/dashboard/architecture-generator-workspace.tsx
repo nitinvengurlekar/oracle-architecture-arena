@@ -29,7 +29,6 @@ import ReactFlow, {
   type NodeTypes,
   useEdgesState,
   useNodesState,
-  useStoreApi,
 } from "reactflow"
 
 import { Badge } from "@/components/ui/badge"
@@ -132,10 +131,6 @@ const statusDescriptions = {
 const statusOptions = ["Generated", "Review", "Validated"] satisfies
   ArchitectureNodeStatus[]
 
-const nodeTypes = {
-  ociService: OciArchitectureNode,
-} satisfies NodeTypes
-
 const proOptions = { hideAttribution: true }
 const defaultViewport = { x: 26, y: 170, zoom: 0.42 }
 
@@ -143,16 +138,6 @@ function handleFlowError(code: string, message: string) {
   if (code !== "002") {
     console.warn(message)
   }
-}
-
-function FlowErrorInitializer() {
-  const store = useStoreApi()
-
-  useMemo(() => {
-    store.setState({ onError: handleFlowError })
-  }, [store])
-
-  return null
 }
 
 export function ArchitectureGeneratorWorkspace({
@@ -234,6 +219,10 @@ export function ArchitectureGeneratorWorkspace({
   const nodeCards = useMemo(() => nodes.map((node) => node.data), [nodes])
   const [summaryPanelSize, setSummaryPanelSize] =
     useState<SummaryPanelSize>("comfortable")
+  const nodeTypes = useMemo<NodeTypes>(
+    () => ({ ociService: OciArchitectureNode }),
+    []
+  )
   const isSummaryCompact = summaryPanelSize === "compact"
   const isSummaryHidden = summaryPanelSize === "hidden"
   const workspaceLayoutClass = cn(
@@ -434,7 +423,6 @@ export function ArchitectureGeneratorWorkspace({
               )}
             >
               <ReactFlowProvider>
-                <FlowErrorInitializer />
                 <ReactFlow
                   nodes={nodes}
                   edges={edges}
@@ -455,11 +443,6 @@ export function ArchitectureGeneratorWorkspace({
                 >
                   <Background color="#cbd5e1" gap={24} />
                   <Controls showInteractive={false} />
-                  <ArchitectureMiniMap
-                    nodes={nodes}
-                    selectedNodeId={normalizedSelectedNodeId}
-                    onSelectNode={setSelectedNodeId}
-                  />
                 </ReactFlow>
               </ReactFlowProvider>
             </div>
@@ -522,46 +505,46 @@ function GeneratorCommandBar({
     history.find((item) => item.id === selectedArchitectureId) ?? history[0]
 
   return (
-    <Card className="rounded-md border-0 bg-slate-950 text-white shadow-sm ring-slate-900">
-      <CardContent className="grid gap-5 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,430px)] xl:items-start">
-        <div className="min-w-0">
-          <div className="flex flex-wrap gap-2">
-            <Badge className="rounded-md bg-red-600 text-white">
-              Generated from Debate Arena
-            </Badge>
-            <Badge className="rounded-md bg-white text-slate-950">
-              Version {generationVersion}
-            </Badge>
-            <Badge className="rounded-md bg-white text-slate-950">
-              {blueprint.confidence}% confidence
-            </Badge>
-          </div>
-          <h3 className="mt-3 text-xl font-semibold text-white">
-            {blueprint.title}
-          </h3>
-          <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-300">
-            {blueprint.summary}
-          </p>
-        </div>
-        <div className="rounded-md border border-white/10 bg-white/5 p-3">
-          <div className="space-y-3">
-            <div>
-              <div
-                className="text-sm font-semibold text-white"
-                title="This is the saved scenario used as input for the next generated architecture."
-              >
-                Scenario input for next generation
-              </div>
-              <p className="mt-1 text-xs leading-5 text-slate-300">
-                Pick a scenario, then generate a new saved blueprint from it.
-              </p>
+    <Card className="rounded-md border-0 bg-white shadow-sm ring-slate-200">
+      <CardContent className="space-y-4 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap gap-2">
+              <Badge className="rounded-md bg-red-600 text-white">
+                Generated from Debate Arena
+              </Badge>
+              <Badge variant="outline" className="rounded-md bg-slate-50">
+                Version {generationVersion}
+              </Badge>
+              <Badge variant="outline" className="rounded-md bg-slate-50">
+                {blueprint.confidence}% confidence
+              </Badge>
             </div>
+            <h3 className="mt-2 text-xl font-semibold text-slate-950">
+              {blueprint.title}
+            </h3>
+          </div>
+          <div className="max-w-sm text-right text-xs leading-5 text-slate-500">
+            <div className="font-semibold uppercase tracking-wide text-slate-400">
+              Loaded output
+            </div>
+            <div className="truncate font-medium text-slate-700">
+              {selectedHistoryItem.description ?? blueprint.generatedFrom}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 lg:grid-cols-[minmax(220px,1.25fr)_auto_minmax(220px,1fr)_auto] lg:items-end">
+          <label className="min-w-0">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Scenario input
+            </span>
             <Select
               value={selectedUseCaseId}
               onValueChange={onSelectUseCase}
               disabled={catalogItems.length === 0}
             >
-              <SelectTrigger className="min-h-11 w-full max-w-full rounded-md border-white/20 bg-white text-slate-950">
+              <SelectTrigger className="mt-2 min-h-11 w-full max-w-full rounded-md bg-white text-slate-950">
                 <SelectValue placeholder="Select saved scenario" />
               </SelectTrigger>
               <SelectContent className="max-w-[min(30rem,calc(100vw-2rem))]">
@@ -572,35 +555,29 @@ function GeneratorCommandBar({
                 ))}
               </SelectContent>
             </Select>
-            <Button
-              className="w-full bg-red-600 text-white hover:bg-red-700"
-              onClick={onGenerateFromUseCase}
-              disabled={isGeneratingBlueprint || catalogItems.length === 0}
-            >
-              {isGeneratingBlueprint ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <WandSparkles className="size-4" />
-              )}
-              {isGeneratingBlueprint ? "Generating blueprint" : "Generate from scenario"}
-            </Button>
+          </label>
+          <Button
+            className="h-11 bg-red-600 text-white hover:bg-red-700"
+            onClick={onGenerateFromUseCase}
+            disabled={isGeneratingBlueprint || catalogItems.length === 0}
+          >
+            {isGeneratingBlueprint ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <WandSparkles className="size-4" />
+            )}
+            {isGeneratingBlueprint ? "Generating" : "Generate"}
+          </Button>
 
-            <div className="border-t border-white/10 pt-3">
-              <div
-                className="text-sm font-semibold text-white"
-                title="This switches the diagram to a previously generated architecture output."
-              >
-                Saved generated architectures
-              </div>
-              <p className="mt-1 text-xs leading-5 text-slate-300">
-                Select a saved output to reload its diagram and recommendation.
-              </p>
-            </div>
+          <label className="min-w-0">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Saved architecture
+            </span>
             <Select
               value={selectedArchitectureId}
               onValueChange={onSelectArchitecture}
             >
-              <SelectTrigger className="min-h-11 w-full max-w-full rounded-md border-white/20 bg-white text-slate-950">
+              <SelectTrigger className="mt-2 min-h-11 w-full max-w-full rounded-md bg-white text-slate-950">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="max-w-[min(28rem,calc(100vw-2rem))]">
@@ -611,25 +588,22 @@ function GeneratorCommandBar({
                 ))}
               </SelectContent>
             </Select>
-            <p className="mt-2 text-xs leading-5 text-slate-300">
-              {selectedHistoryItem.generatedAt} ·{" "}
-              {selectedHistoryItem.description ?? blueprint.generatedFrom}
-            </p>
-            {persistenceMessage ? (
-              <p className="rounded-md border border-white/10 bg-white/5 p-2 text-xs leading-5 text-slate-200">
-                {persistenceMessage}
-              </p>
-            ) : null}
-            <Button
-              variant="outline"
-              className="w-full border-white/20 bg-white text-slate-950 hover:bg-slate-100"
-              onClick={onRegenerate}
-            >
-              <WandSparkles className="size-4" />
-              Reset from debate
-            </Button>
-          </div>
+          </label>
+          <Button
+            variant="outline"
+            className="h-11 bg-white text-slate-950 hover:bg-slate-100"
+            onClick={onRegenerate}
+          >
+            <WandSparkles className="size-4" />
+            Reset
+          </Button>
         </div>
+
+        {persistenceMessage ? (
+          <p className="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs leading-5 text-slate-600">
+            {persistenceMessage}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   )
@@ -752,69 +726,6 @@ function OciArchitectureCards({
   )
 }
 
-function ArchitectureMiniMap({
-  nodes,
-  selectedNodeId,
-  onSelectNode,
-}: {
-  nodes: ArchitectureFlowNode[]
-  selectedNodeId: string
-  onSelectNode: (nodeId: string) => void
-}) {
-  const bounds = useMemo(() => {
-    const xValues = nodes.map((node) => node.position.x)
-    const yValues = nodes.map((node) => node.position.y)
-
-    return {
-      minX: Math.min(...xValues),
-      maxX: Math.max(...xValues),
-      minY: Math.min(...yValues),
-      maxY: Math.max(...yValues),
-    }
-  }, [nodes])
-  const xRange = Math.max(bounds.maxX - bounds.minX, 1)
-  const yRange = Math.max(bounds.maxY - bounds.minY, 1)
-
-  return (
-    <div className="absolute bottom-4 right-4 z-10 w-60 rounded-md border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Architecture map
-        </div>
-        <Badge variant="outline" className="rounded-md bg-slate-50">
-          {nodes.length} nodes
-        </Badge>
-      </div>
-      <div className="relative mt-3 h-28 rounded-md border border-slate-200 bg-slate-50">
-        {nodes.map((node) => {
-          const tone = getToneClasses(statusTone[node.data.status])
-          const isSelected = node.id === selectedNodeId
-          const left = 8 + ((node.position.x - bounds.minX) / xRange) * 84
-          const top = 10 + ((node.position.y - bounds.minY) / yRange) * 80
-
-          return (
-            <button
-              key={node.id}
-              type="button"
-              title={node.data.ociService}
-              aria-label={`Select ${node.data.ociService}`}
-              onClick={() => onSelectNode(node.id)}
-              className={cn(
-                "absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-sm border transition-transform",
-                tone.soft,
-                isSelected
-                  ? "scale-125 border-red-600 ring-2 ring-red-200"
-                  : "border-slate-300 hover:scale-110"
-              )}
-              style={{ left: `${left}%`, top: `${top}%` }}
-            />
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
 function ArchitectureSummaryPanel({
   blueprint,
   recommendation,
@@ -855,7 +766,7 @@ function ArchitectureSummaryPanel({
             {blueprint.recommendationSource}
           </div>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            {recommendation.summary}
+            {blueprint.summary}
           </p>
         </div>
 

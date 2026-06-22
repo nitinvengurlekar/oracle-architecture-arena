@@ -12,7 +12,6 @@ import ReactFlow, {
   type EdgeTypes,
   type Node,
   type NodeTypes,
-  useStoreApi,
 } from "reactflow"
 
 import type {
@@ -36,16 +35,6 @@ function handleFlowError(code: string, message: string) {
   if (code !== "002") {
     console.warn(message)
   }
-}
-
-function FlowErrorInitializer() {
-  const store = useStoreApi()
-
-  useMemo(() => {
-    store.setState({ onError: handleFlowError })
-  }, [store])
-
-  return null
 }
 
 export function ArchitectureFlowPreview({
@@ -113,7 +102,6 @@ export function ArchitectureFlowPreview({
   return (
     <div className="h-[520px] overflow-hidden rounded-md border border-slate-200 bg-white">
       <ReactFlowProvider>
-        <FlowErrorInitializer />
         <ReactFlow
           nodes={flowNodes}
           edges={flowEdges}
